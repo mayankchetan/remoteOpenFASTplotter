@@ -1,8 +1,17 @@
 import pytest
 import os
 import glob
-import pandas as pd
-from app import get_unique_identifiers, remove_duplicated_legends, draw_graph
+import sys
+from pathlib import Path
+
+# Try to import directly or with path adjustment
+try:
+    from app import get_unique_identifiers, remove_duplicated_legends, draw_graph
+except ImportError:
+    # If direct import fails, adjust the path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from app import get_unique_identifiers, remove_duplicated_legends, draw_graph
+
 import plotly.graph_objects as go
 
 # Fixture to find test files
@@ -65,7 +74,12 @@ def test_remove_duplicated_legends():
 # Test file info utility
 def test_file_info():
     """Test if the file info function works correctly with sample files"""
-    from app import get_file_info
+    # Use relative import
+    try:
+        from app import get_file_info
+    except ImportError:
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        from app import get_file_info
     
     # Create a temporary file for testing
     import tempfile
