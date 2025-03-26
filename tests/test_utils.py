@@ -108,8 +108,16 @@ def test_file_info():
         # Check if the path matches
         assert file_info["file_abs_path"] == test_file
         
+        # Verify the content length matches the expected size
+        expected_size_bytes = len(content)
+        expected_size_mb = expected_size_bytes / (1024 * 1024)
+        
         # Check if file size is positive - should be at least as large as our content
-        assert file_info["file_size"] > 0, f"File size is {file_info['file_size']} but should be positive"
+        assert file_info["file_size"] > 0, f"File size is {file_info['file_size']} MB but should be positive (expected about {expected_size_mb} MB for {expected_size_bytes} bytes)"
+        
+        # Get the actual file size to compare (optional additional check)
+        actual_size = os.path.getsize(test_file)
+        assert actual_size == expected_size_bytes, f"File size mismatch: {actual_size} bytes vs expected {expected_size_bytes} bytes"
         
         # Check if timestamps are present
         assert file_info["creation_time"] > 0

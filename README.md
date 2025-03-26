@@ -2,6 +2,8 @@
 
 A Dash web application for reading and plotting OpenFAST output files on remote computers.
 
+[![OpenFAST Plotter CI/CD](https://github.com/mayankchetan/remoteOpenFASTplotter/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/mayankchetan/remoteOpenFASTplotter/actions/workflows/ci-cd.yml)
+
 ## Features
 
 - **Fast Data Loading**: Efficiently loads OpenFAST output files using parallel processing
