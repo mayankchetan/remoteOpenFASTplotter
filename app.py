@@ -121,7 +121,7 @@ def get_file_info(file_path):
         file_stats = os.stat(file_path)
         file_info = {
             'file_abs_path': file_path,
-            'file_size': round(file_stats.st_size / (1024 * 1024), 2),  # in MB
+            'file_size': file_stats.st_size / (1024 * 1024),  # Store in MB without rounding initially
             'creation_time': file_stats.st_ctime,
             'modification_time': file_stats.st_mtime
         }
