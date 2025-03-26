@@ -69,7 +69,7 @@ This will download sample `.outb` files from the OpenFAST r-test repository and 
 
 ## Requirements
 
-- Python 3.7+
+- Python>=3.11
 - Dash
 - Dash Bootstrap Components
 - Pandas
