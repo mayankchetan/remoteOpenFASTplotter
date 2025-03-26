@@ -1,0 +1,17 @@
+name: remoteopenfast
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.12
+  - dash
+  - dash-bootstrap-components
+  - pandas
+  - plotly
+  - pyyaml
+  - numpy
+  - pip
+  - openfast-io
+  - futures-connector  # For Python <3.9, adds concurrent.futures support
+  - pip:
+    - dash-extensions

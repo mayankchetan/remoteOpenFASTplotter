@@ -1,0 +1,8 @@
+dash
+dash-bootstrap-components
+pandas
+plotly
+pyyaml
+numpy
+openfast_io
+futures-connector
