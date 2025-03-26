@@ -5,6 +5,5 @@ plotly
 pyyaml
 numpy
 openfast_io
-futures-connector
 requests
 tqdm

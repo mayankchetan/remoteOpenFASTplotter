@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.9, 3.12, 3.13]
+        python-version: [3.11, 3.12]  # Updated to use only supported Python versions
 
     steps:
     - uses: actions/checkout@v3
@@ -32,7 +32,30 @@ jobs:
     - name: Download test files
       run: |
         # Download test files from OpenFAST r-test repository
-        python utils/download_test_files.py --output ./test_files
+        mkdir -p test_files  # Ensure directory exists
+        python -c "
+        import os
+        import requests
+        from pathlib import Path
+        
+        TEST_FILES = {
+            '5MW_Land_BD_DLL_WTurb': 'https://github.com/OpenFAST/r-test/raw/main/glue-codes/openfast/5MW_Land_BD_DLL_WTurb/5MW_Land_BD_DLL_WTurb.outb',
+            '5MW_Land_DLL_WTurb': 'https://github.com/OpenFAST/r-test/raw/main/glue-codes/openfast/5MW_Land_DLL_WTurb/5MW_Land_DLL_WTurb.outb'
+        }
+        
+        output_dir = './test_files'
+        os.makedirs(output_dir, exist_ok=True)
+        
+        for name, url in TEST_FILES.items():
+            file_name = f'{name}.outb'
+            destination = os.path.join(output_dir, file_name)
+            print(f'Downloading {file_name}...')
+            response = requests.get(url)
+            if response.status_code == 200:
+                with open(destination, 'wb') as f:
+                    f.write(response.content)
+                print(f'Downloaded to {destination}')
+        "
         # List downloaded files
         find ./test_files -type f -name "*.outb" -ls
 
@@ -64,7 +87,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: '3.11'  # Updated to match minimum version
         
     - name: Install build dependencies
       run: |
