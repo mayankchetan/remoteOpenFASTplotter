@@ -53,31 +53,19 @@ A Dash web application for reading and plotting OpenFAST output files on remote 
    - Click "Export Plot as HTML" to download a standalone HTML file
    - Share the HTML file with others (no software needed to view)
 
-## Advanced Features
+## Testing with Example Files
 
-### Intelligent File Labels
-The application automatically creates unique identifiers for files by analyzing path differences, making it easy to distinguish between similar files.
+For quick testing and demonstration, you can download example OpenFAST output files:
 
-### Performance Optimization
-- Parallel file loading for faster startup with multiple files
-- Server-side DataFrame storage avoids serialization/deserialization overhead
-- Efficient plotting with minimal data transformations
+```bash
+# Download test files to the test_files directory
+python utils/download_test_files.py
 
-### Error Handling
-- Detailed error reporting for file loading issues
-- Clear visual feedback during processing
-- Tooltips with full file paths and metadata
-
-## File Structure
-
+# Optionally specify a different output directory
+python utils/download_test_files.py --output /path/to/your/directory
 ```
-remoteOpenFASTplotter/
-├── app.py                 # Main application file
-├── requirements.txt       # pip dependencies
-├── environment.yaml       # Conda environment specification
-├── openfast_io/           # OpenFAST file readers
-└── exports/               # Default directory for exported files
-```
+
+This will download sample `.outb` files from the OpenFAST r-test repository and print their paths, which you can then copy and paste into the application.
 
 ## Requirements
 
@@ -115,4 +103,7 @@ This tool is inspired by:
 
 ## License
 
-[MIT License](LICENSE)
+This software is distributed under the Apache License, Version 2.0.
+
+For license details, see the [LICENSE](LICENSE) file.
+

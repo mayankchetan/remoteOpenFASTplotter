@@ -13,5 +13,7 @@ dependencies:
   - pip
   - openfast-io
   - futures-connector  # For Python <3.9, adds concurrent.futures support
+  - requests
+  - tqdm
   - pip:
     - dash-extensions
