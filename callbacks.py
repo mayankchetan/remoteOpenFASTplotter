@@ -13,13 +13,16 @@ import plotly.graph_objects as go
 import plotly.colors
 import uuid
 
-from dash import Input, Output, State, html, dcc, ctx, ALL
+from dash import Input, Output, State, html, dcc, ctx, ALL, no_update
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc  # Add this import for dbc
 
 # Import local modules
-from data_manager import DATAFRAMES, store_dataframes, get_file_info 
+from data_manager import DATAFRAMES, store_dataframes, get_file_info, remove_file
 from utils import draw_graph, create_file_pills, create_annotation_badges, get_unique_identifiers
+# Import new user preferences module
+from user_preferences import (load_preferences, update_recent_files, update_favorite_signals, 
+                            save_fft_settings, save_custom_annotations, save_plot_settings)
 
 # Import FFT analysis module
 sys.path.append(os.path.join(os.path.dirname(__file__), 'tools'))
@@ -34,6 +37,46 @@ def register_callbacks(app):
     app : dash.Dash
         The Dash application instance
     """
+    
+    # Initialize and load user preferences when app starts
+    @app.callback(
+        Output("fft-annotations", "data", allow_duplicate=True),
+        Output("fft-annotations-display", "children", allow_duplicate=True),
+        Output("fft-averaging", "value", allow_duplicate=True),
+        Output("fft-windowing", "value", allow_duplicate=True),
+        Output("fft-n-exp", "value", allow_duplicate=True),
+        Output("fft-plot-style", "value", allow_duplicate=True),
+        Output("fft-detrend", "value", allow_duplicate=True),
+        Output("fft-xscale", "value", allow_duplicate=True),
+        Output("fft-x-limit", "value", allow_duplicate=True),
+        Output("plot-option", "value", allow_duplicate=True),
+        Input("plot-metadata", "data"),  # Use the metadata store as a trigger on app start
+        prevent_initial_call=True
+    )
+    def initialize_from_preferences(metadata):
+        """Initialize app settings from saved user preferences"""
+        prefs = load_preferences()
+        
+        # Initialize FFT annotations
+        annotations = prefs.get("custom_annotations", [])
+        badges = create_annotation_badges(annotations)
+        
+        # Initialize FFT settings
+        fft_settings = prefs.get("fft_settings", {})
+        averaging = fft_settings.get("averaging", "Welch")
+        windowing = fft_settings.get("windowing", "hamming")
+        n_exp = fft_settings.get("n_exp", 15)
+        plot_style = fft_settings.get("plot_style", "overlay")
+        detrend = ["detrend"] if fft_settings.get("detrend", True) else []
+        xscale = fft_settings.get("xscale", "linear")
+        x_limit = fft_settings.get("x_limit", 5)
+        
+        # Initialize plot settings
+        plot_settings = prefs.get("plot_settings", {})
+        plot_option = plot_settings.get("plot_option", "overlay")
+        
+        return (annotations, badges, averaging, windowing, n_exp, plot_style, 
+                detrend, xscale, x_limit, plot_option)
     
     #######################
     # UI AND LOADING CALLBACKS
@@ -219,6 +262,10 @@ def register_callbacks(app):
                             if 'max_time' not in time_range_info or max_time > time_range_info['max_time']:
                                 time_range_info['max_time'] = max_time
                 
+            # Update user preferences with successful files
+            if new_dfs:
+                update_recent_files(list(new_dfs.keys()))
+                
             return (
                 {"files": all_files},
                 all_files,
@@ -339,7 +386,7 @@ def register_callbacks(app):
                     # Try to find a similar signal
                     base_name = signal.split('_')[0]
                     for col in sorted_columns:
-                        if col.startswith(base_name):
+                        if (col.startswith(base_name)):
                             default_y.append(col)
                             break
             
@@ -613,16 +660,16 @@ def register_callbacks(app):
         State("fft-averaging", "value"),
         State("fft-windowing", "value"),
         State("fft-n-exp", "value"),
-        State("fft-detrend", "value"),
+        State("fft-plot-style", "value"),  # Swapped position with detrend
+        State("fft-detrend", "value"),     # Swapped position with plot_style
         State("fft-x-limit", "value"),
         State("fft-xscale", "value"),
-        State("fft-plot-style", "value"),
         State("time-start", "value"),
         State("time-end", "value"),
         State("fft-annotations", "data"),
         prevent_initial_call=True
     )
-    def calculate_fft(n_clicks, file_paths, time_col, signals, averaging, windowing, n_exp, detrend, x_limit, xscale, plot_style, start_time, end_time, annotations):
+    def calculate_fft(n_clicks, file_paths, time_col, signals, averaging, windowing, n_exp, plot_style, detrend, x_limit, xscale, start_time, end_time, annotations):
         """
         Calculate FFT for all selected signals across all files.
         
@@ -1007,7 +1054,7 @@ def register_callbacks(app):
                 """
             
             settings_html += "</ul>"
-            
+        
         settings_html += "</div>"
         
         # Generate the HTML with the figure and settings
@@ -1018,7 +1065,7 @@ def register_callbacks(app):
         if split_point > 0:
             html_str = fig_html[:split_point] + settings_html + fig_html[split_point:]
         else:
-            html_str = fig_html
+            html_str = fig_html + settings_html
         
         return dict(
             content=html_str,
@@ -1028,7 +1075,7 @@ def register_callbacks(app):
     #######################
     # FFT ANNOTATION CALLBACKS
     #######################
-
+    
     # Add callback to manage annotations
     @app.callback(
         Output("fft-annotations", "data"),
@@ -1048,9 +1095,10 @@ def register_callbacks(app):
         """
         trigger = ctx.triggered_id
         
-        # Reset when switching to FFT tab
-        if trigger == "tabs" and active_tab == "tab-fft":
-            return [], [], None, None
+        # Don't reset annotations when switching tabs anymore
+        if trigger == "tabs":
+            # Only clear input fields but keep the annotations
+            return current_annotations, create_annotation_badges(current_annotations), None, None
         
         # Skip if no click or no input
         if not add_clicks or not freq_input:
@@ -1083,6 +1131,9 @@ def register_callbacks(app):
         # Sort by frequency
         new_annotations.sort(key=lambda x: x["freq"])
         
+        # Save annotations to user preferences
+        save_custom_annotations(new_annotations)
+        
         # Create badges for visual display
         badges = create_annotation_badges(new_annotations)
         
@@ -1110,6 +1161,9 @@ def register_callbacks(app):
             
             # Remove the annotation
             new_annotations = [a for i, a in enumerate(current_annotations) if i != index_to_remove]
+            
+            # Save to user preferences
+            save_custom_annotations(new_annotations)
             
             # Update badges
             badges = create_annotation_badges(new_annotations)
@@ -1159,7 +1213,160 @@ def register_callbacks(app):
         # Sort by frequency
         new_annotations.sort(key=lambda x: x["freq"])
         
+        # Save to user preferences
+        save_custom_annotations(new_annotations)
+        
         # Create badges for visual display
         badges = create_annotation_badges(new_annotations)
         
         return new_annotations, badges, None
+        
+    # Add new callback for removing individual files
+    @app.callback(
+        [Output('loaded-files', 'data', allow_duplicate=True),
+         Output('file-path-list', 'data', allow_duplicate=True),
+         Output('loaded-files-pills', 'children', allow_duplicate=True),
+         Output('loaded-files-count', 'children', allow_duplicate=True),
+         Output('signalx', 'options', allow_duplicate=True),
+         Output('signaly', 'options', allow_duplicate=True),
+         Output('plot-output', 'children', allow_duplicate=True)],
+        [Input({'type': 'remove-file-btn', 'index': ALL}, 'n_clicks')],
+        [State('loaded-files', 'data'),
+         State('file-path-list', 'data')],
+        prevent_initial_call=True
+    )
+    def remove_loaded_file(n_clicks, loaded_files, file_paths):
+        """
+        Remove a loaded file when its remove button is clicked.
+        """
+        if not any(n_clicks) or not loaded_files or "files" not in loaded_files:
+            raise PreventUpdate
+        
+        button_id = ctx.triggered_id
+        if button_id is None:
+            raise PreventUpdate
+        
+        index = button_id['index']
+        current_files = loaded_files.get("files", [])
+        
+        if index >= len(current_files):
+            raise PreventUpdate
+        
+        file_to_remove = current_files[index]
+        remove_file(file_to_remove)
+        
+        updated_files = [f for i, f in enumerate(current_files) if i != index]
+        updated_file_paths = [f for f in file_paths if f != file_to_remove]
+        
+        # Update the file pills
+        file_pills = create_file_pills(updated_files)
+        
+        # Update the file count badge
+        file_count = str(len(updated_files))
+        
+        # Get common signals across remaining files
+        signal_options = []
+        if updated_files:
+            if updated_files[0] in DATAFRAMES:
+                # Get common columns from first file
+                signal_options = sorted(list(DATAFRAMES[updated_files[0]].columns))
+        
+        # Clear the plot if no files are left - use no_update instead of dash.no_update
+        plot_output = html.Div("Select signals to plot", className="text-center p-5 text-muted") if not updated_files else no_update
+        
+        return ({"files": updated_files}, updated_file_paths, file_pills, file_count, signal_options, signal_options, plot_output)
+
+    # Add favorite signals callbacks
+    @app.callback(
+        Output("signaly", "value", allow_duplicate=True),
+        Input("favorite-signals-btn", "n_clicks"),
+        State("signaly", "options"),
+        prevent_initial_call=True
+    )
+    def load_favorite_signals(n_clicks, available_signals):
+        """Load favorite signals from user preferences"""
+        if not n_clicks:
+            raise PreventUpdate
+        
+        prefs = load_preferences()
+        favorites = prefs.get("favorite_signals", [])
+        
+        # If there are no favorites or no available signals, prevent update
+        if not favorites or not available_signals:
+            return no_update
+            
+        # Handle different formats of dropdown options
+        # Check the type of the first option to determine format
+        if isinstance(available_signals[0], dict) and 'value' in available_signals[0]:
+            # Format is list of dicts with 'value' key
+            available_signal_values = [opt['value'] for opt in available_signals]
+        elif isinstance(available_signals[0], str):
+            # Format is just a list of strings (the values themselves)
+            available_signal_values = available_signals
+        else:
+            # Unknown format, prevent update
+            return no_update
+        
+        # Filter favorites to only include available signals
+        valid_favorites = [sig for sig in favorites if sig in available_signal_values]
+        
+        if not valid_favorites:
+            return no_update
+            
+        return valid_favorites
+    
+    # Add callback to save favorite signals
+    @app.callback(
+        Output("favorite-signals-status", "children"),
+        Input("save-favorites-btn", "n_clicks"),
+        State("signaly", "value"),
+        prevent_initial_call=True
+    )
+    def save_favorite_signals_callback(n_clicks, selected_signals):
+        """Save currently selected signals as favorites"""
+        if not n_clicks or not selected_signals:
+            raise PreventUpdate
+            
+        update_favorite_signals(selected_signals)
+        
+        return html.Span("Saved!", className="text-success fade-out")
+
+    # Add callbacks to save settings
+    @app.callback(
+        Output("plot-metadata", "data", allow_duplicate=True),  # Just a dummy output
+        Input("plot-option", "value"),
+        State("plot-metadata", "data"),
+        prevent_initial_call=True
+    )
+    def save_plot_settings_callback(plot_option, metadata):
+        """Save plot settings to user preferences when they change"""
+        settings = {"plot_option": plot_option}
+        save_plot_settings(settings)
+        return no_update
+
+    # Add callback to save FFT settings when they change
+    @app.callback(
+        Output("plot-metadata", "data", allow_duplicate=True),  # Just a dummy output
+        Input("fft-averaging", "value"),
+        Input("fft-windowing", "value"),
+        Input("fft-n-exp", "value"),
+        Input("fft-plot-style", "value"),
+        Input("fft-detrend", "value"),
+        Input("fft-xscale", "value"),
+        Input("fft-x-limit", "value"),
+        State("plot-metadata", "data"),
+        prevent_initial_call=True
+    )
+    def save_fft_settings_callback(averaging, windowing, n_exp, plot_style, detrend, xscale, x_limit, metadata):
+        """Save FFT settings to user preferences when they change"""
+        settings = {
+            "averaging": averaging,
+            "windowing": windowing,
+            "n_exp": n_exp,
+            "plot_style": plot_style,
+            "detrend": "detrend" in detrend,
+            "xscale": xscale,
+            "x_limit": x_limit
+        }
+        save_fft_settings(settings)
+        return no_update

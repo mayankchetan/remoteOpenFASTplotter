@@ -157,6 +157,12 @@ signal_selection_card = dbc.Card([
                 [
                     html.Label("Y Signals"),
                     dcc.Dropdown(id="signaly", options=[], value=None, multi=True),
+                    # Add favorite signals buttons
+                    html.Div([
+                        dbc.Button("Load Favorites", id="favorite-signals-btn", color="link", size="sm", className="p-0 me-2"),
+                        dbc.Button("Save Selection", id="save-favorites-btn", color="link", size="sm", className="p-0"),
+                        html.Span(id="favorite-signals-status", className="ms-2 small")
+                    ], className="d-flex align-items-center mt-1")
                 ],
                 width=6
             ),
@@ -278,13 +284,14 @@ fft_controls_card = dbc.Card([
             
             dbc.Col([
                 html.Label("Plot Style"),
-                dcc.Dropdown(
+                dbc.RadioItems(  # Changed from dropdown to radio buttons
                     id="fft-plot-style",
                     options=[
                         {"label": "Separate", "value": "separate"},
                         {"label": "Overlay", "value": "overlay"}
                     ],
-                    value="separate"
+                    value="overlay",  # Set overlay as default
+                    inline=True
                 ),
             ], width=4),
             

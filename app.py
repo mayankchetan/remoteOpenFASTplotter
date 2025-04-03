@@ -36,6 +36,39 @@ app = dash.Dash(
     suppress_callback_exceptions=True  # Allow dynamic components
 )
 
+# Add custom CSS for fade-out effect
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <style>
+            /* Custom CSS for the fade-out effect */
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; }
+            }
+            
+            .fade-out {
+                animation: fadeOut 2s forwards;
+                animation-delay: 1s;
+            }
+        </style>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
+
 # Set the app layout from our components module
 app.layout = create_layout()
 

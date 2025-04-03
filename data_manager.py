@@ -99,3 +99,21 @@ def get_file_info(file_path):
             'creation_time': 0,
             'modification_time': 0
         }
+
+def remove_file(file_path):
+    """
+    Remove a file from the DATAFRAMES dictionary
+    
+    Parameters:
+    -----------
+    file_path : str
+        Path to OpenFAST output file to remove
+        
+    Returns:
+    --------
+    bool : True if file was removed, False otherwise
+    """
+    if file_path in DATAFRAMES:
+        DATAFRAMES.pop(file_path)
+        return True
+    return False

@@ -198,40 +198,37 @@ def draw_graph(file_path_list, df_list, signalx, signaly, plot_option):
 
 def create_file_pills(file_paths):
     """
-    Create pills showing loaded files with unique identifiers.
+    Create badges for loaded files with removal option
     
     Parameters:
     -----------
-    file_paths : list
+    file_paths : list of str
         List of file paths
-    
+        
     Returns:
     --------
-    dash component
-        HTML div containing the file pills
+    list of html.Div
+        List of pill components with file names and close buttons
     """
-    if not file_paths:
-        return html.Div()
-    
-    # Get unique identifiers for file paths
-    path_identifiers = get_unique_identifiers(file_paths)
-    
     pills = []
-    for path in sorted(file_paths):
-        # Use unique identifier instead of just filename
-        display_name = path_identifiers[path]
-        
+    for i, path in enumerate(file_paths):
+        file_name = os.path.basename(path)
         pills.append(
-            dbc.Badge(
-                display_name,
-                color="light",
-                text_color="primary",
-                className="me-1 mb-1",
-                pill=True,
-                title=path  # Add full path as tooltip
-            )
+            html.Div([
+                html.Span(file_name, title=path, className="me-1"),
+                html.Button(
+                    "×", 
+                    id={"type": "remove-file-btn", "index": i},
+                    className="btn-close btn-close-white ms-1",
+                    style={"fontSize": "8px", "padding": "2px", "margin-bottom": "2px"},
+                    n_clicks=0,
+                    title=f"Remove {file_name}"
+                )
+            ], 
+            className="badge bg-primary text-wrap me-2 mb-2 d-flex align-items-center", 
+            style={"maxWidth": "200px"})
         )
-    return html.Div(pills)
+    return pills
 
 def create_annotation_badges(annotations):
     """
