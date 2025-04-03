@@ -108,7 +108,6 @@ def register_callbacks(app):
         3. Displaying status messages and error details
         4. Creating file pills for visual representation of loaded files
         """
-        global DATAFRAMES
         
         trigger_id = ctx.triggered_id
         
