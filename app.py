@@ -7,6 +7,7 @@ Features:
 - Customizable display options (overlay or separate plots)
 - Direct HTML export for sharing and reporting
 - Memory-efficient handling of large datasets
+- Spectral (FFT) analysis with advanced configuration options
 '''
 
 # Import Packages
@@ -19,7 +20,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.colors
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, callback, dcc, html, ctx, no_update
+from dash import Input, Output, State, callback, dcc, html, ctx, no_update, ALL, MATCH
 from dash.exceptions import PreventUpdate
 from plotly.subplots import make_subplots
 import yaml
@@ -29,9 +30,14 @@ import concurrent.futures
 import time
 import uuid
 import json
+import math
 
 # Import local modules
 from openfast_io.FAST_output_reader import FASTOutputFile
+
+# Import our custom FFT analysis module
+sys.path.append(os.path.join(os.path.dirname(__file__), 'tools'))
+from tools.fft_analysis import compute_fft
 
 # Initialize the Dash app with Bootstrap styling
 app = dash.Dash(
@@ -347,7 +353,6 @@ file_input_card = dbc.Card([
                 dbc.Button("Clear All", id="clear-files-btn", color="secondary", outline=True, className="w-100")
             ], width=3)
         ], className="mb-2"),
-        # Remove the progress bar
         html.Div(id="file-loading-status", className="mt-2 small"),
         html.Div([
             html.Div([
@@ -366,13 +371,67 @@ file_input_card = dbc.Card([
                 className="mt-2"
             )
         ], id="error-details-container", style={"display": "none"}),
-        html.Div(id="loaded-files-pills", className="mt-3")
+        html.Div(id="loaded-files-pills", className="mt-3"),
+        # Add file info link to file input card
+        html.Div([
+            html.A(id="file-info-link", children=[
+                html.I(className="bi bi-info-circle me-1", style={"fontSize": "1.1rem"}),
+                "File Info"
+            ], href="#", className="text-decoration-none")
+        ], className="d-flex justify-content-end mt-2")
     ])
 ])
 
-# Plot controls card for configuring the visualization
-plot_controls_card = dbc.Card([
-    dbc.CardHeader("Plot Controls"),
+# Time range selection component - Now promoted to be used globally
+time_range_card = dbc.Card([
+    dbc.CardHeader("Time Range Selection"),
+    dbc.CardBody([
+        dbc.Row([
+            dbc.Col([
+                html.Label("Start Time"),
+                dbc.InputGroup([
+                    dbc.Input(
+                        id="time-start", 
+                        type="number", 
+                        placeholder="Start time",
+                        step="any",
+                        min=0
+                    ),
+                    dbc.InputGroupText("s")
+                ])
+            ], width=6),
+            dbc.Col([
+                html.Label("End Time"),
+                dbc.InputGroup([
+                    dbc.Input(
+                        id="time-end", 
+                        type="number", 
+                        placeholder="End time",
+                        step="any",
+                        min=0
+                    ),
+                    dbc.InputGroupText("s")
+                ])
+            ], width=6)
+        ]),
+        dbc.Row([
+            dbc.Col(
+                dbc.Button(
+                    "Reset Time Range",
+                    id="reset-time-range-btn",
+                    color="link",
+                    size="sm",
+                    className="mt-2"
+                ),
+                width="auto"
+            )
+        ])
+    ])
+])
+
+# Signal selection component - Now promoted to be used globally
+signal_selection_card = dbc.Card([
+    dbc.CardHeader("Signal Selection"),
     dbc.CardBody([
         dbc.Row([
             dbc.Col(
@@ -380,15 +439,24 @@ plot_controls_card = dbc.Card([
                     html.Label("Y Signals"),
                     dcc.Dropdown(id="signaly", options=[], value=None, multi=True),
                 ],
-                width=5
+                width=6
             ),
             dbc.Col(
                 [
                     html.Label("X Signal"),
                     dcc.Dropdown(id="signalx", options=[], value=None),
                 ],
-                width=5
+                width=6
             ),
+        ]),
+    ])
+])
+
+# Plot controls card for time-domain plotting - Now with fewer components
+plot_controls_card = dbc.Card([
+    dbc.CardHeader("Plot Controls"),
+    dbc.CardBody([
+        dbc.Row([
             dbc.Col(
                 [
                     html.Label("Display"),
@@ -399,13 +467,13 @@ plot_controls_card = dbc.Card([
                             {"label": "Separate Files", "value": "separate"}
                         ],
                         value="overlay",
-                        className="small"
+                        className="mb-3"
                     ),
-                    dbc.Button("Update Plot", id="plot-btn", color="success", className="mt-2 w-100"),
+                    dbc.Button("Update Plot", id="plot-btn", color="success", className="w-100"),
                 ],
-                width=2
+                width=12
             ),
-        ], className="mb-2"),
+        ]),
         dbc.Row([
             dbc.Col(
                 dbc.Button(
@@ -413,11 +481,142 @@ plot_controls_card = dbc.Card([
                     id="export-plot-btn",
                     color="info",
                     outline=True,
-                    className="mt-2",
+                    className="mt-3 w-100",
                 ),
                 width="auto"
             ),
-        ], className="mt-2"),
+        ]),
+    ])
+])
+
+# FFT controls card - updating default values
+fft_controls_card = dbc.Card([
+    dbc.CardHeader("FFT Controls"),
+    dbc.CardBody([
+        dbc.Row([
+            dbc.Col([
+                html.Label("Averaging"),
+                dcc.Dropdown(
+                    id="fft-averaging",
+                    options=[
+                        {"label": "None", "value": "None"},
+                        {"label": "Welch", "value": "Welch"},
+                        {"label": "Binning", "value": "Binning"}
+                    ],
+                    value="Welch"  # Changed from "None" to "Welch"
+                ),
+            ], width=4),
+            
+            dbc.Col([
+                html.Label("Windowing"),
+                dcc.Dropdown(
+                    id="fft-windowing",
+                    options=[
+                        {"label": "Hamming", "value": "hamming"},
+                        {"label": "Hann", "value": "hann"},
+                        {"label": "Rectangular", "value": "rectangular"}
+                    ],
+                    value="hamming"  # Default already set to hamming
+                ),
+            ], width=4),
+            
+            dbc.Col([
+                html.Label("2^n Exponent"),
+                dbc.Input(
+                    id="fft-n-exp",
+                    type="number",
+                    min=1,
+                    max=20,
+                    step=1,
+                    value=15  # Changed from 10 to 15
+                ),
+            ], width=4),
+        ], className="mb-3"),
+        
+        dbc.Row([
+            dbc.Col([
+                dbc.Checklist(
+                    options=[{"label": "Detrend", "value": "detrend"}],
+                    value=["detrend"],  # Changed from [] to ["detrend"] to set default to True
+                    id="fft-detrend",
+                    inline=True,
+                    className="mt-2"
+                ),
+            ], width=3),
+            dbc.Col([
+                html.Label("X-axis Limit (Hz)"),
+                dbc.Input(
+                    id="fft-x-limit",
+                    type="number",
+                    min=0.001,
+                    step="any",
+                    placeholder="Max frequency",
+                    value=5  # Added default value of 5Hz
+                ),
+            ], width=3),
+            dbc.Col([
+                html.Label("X-axis Scale"),
+                dbc.RadioItems(
+                    id="fft-xscale",
+                    options=[
+                        {"label": "Log", "value": "log"},
+                        {"label": "Linear", "value": "linear"}
+                    ],
+                    value="linear",  # Changed from "log" to "linear"
+                    inline=True
+                ),
+            ], width=3),
+            dbc.Col([
+                html.Label("Plot Style"),
+                dbc.RadioItems(
+                    id="fft-plot-style",
+                    options=[
+                        {"label": "Separate", "value": "separate"},
+                        {"label": "Overlay", "value": "overlay"}
+                    ],
+                    value="separate",
+                    inline=True
+                ),
+            ], width=3),
+        ], className="mb-3"),
+        
+        # Add new annotations section
+        dbc.Row([
+            dbc.Col([
+                html.Label("Frequency Annotations", className="mt-3 mb-1"),
+                dbc.InputGroup([
+                    dbc.Input(id="fft-annotation-freq", type="text", placeholder="Hz (comma separated)", size="sm"),
+                    dbc.Input(id="fft-annotation-text", type="text", placeholder="Labels (comma separated)", size="sm"),
+                    dbc.Button("Add", id="fft-add-annotation-btn", outline=True, color="secondary", size="sm"),
+                ], size="sm"),
+            ], width=12),
+        ], className="mb-1"),
+        
+        # Badge display for current annotations
+        dbc.Row([
+            dbc.Col([
+                html.Div(id="fft-annotations-display", className="mb-2")
+            ], width=12),
+        ]),
+        
+        dbc.Row([
+            dbc.Col([
+                dbc.Button("Calculate FFT", id="fft-calculate-btn", color="success", className="w-100"),
+            ], width=12),
+        ]),
+        
+        dbc.Row([
+            dbc.Col(
+                dbc.Button(
+                    [html.I(className="bi bi-download me-2"), "Export FFT as HTML"],
+                    id="export-fft-btn",
+                    color="info",
+                    outline=True,
+                    className="mt-3 w-100",
+                ),
+                width="auto"
+            ),
+        ]),
     ])
 ])
 
@@ -437,52 +636,97 @@ loading_spinner = dbc.Spinner(
     fullscreen=False,
 )
 
-#######################
-# MAIN APP LAYOUT
-#######################
+# Create tabs for different features
+tabs = dbc.Tabs(
+    [
+        dbc.Tab(
+            [
+                # Time domain plotting tab - No longer contains time range or signal selection
+                dbc.Row([
+                    dbc.Col([
+                        plot_controls_card,
+                        html.Div(loading_spinner, className="text-center my-3", id="loading-container", style={"display": "none"}),
+                    ], width=12)
+                ], className="mb-2"),
+                dbc.Row([
+                    dbc.Col(
+                        html.Div([
+                            # Removed file info link from here
+                            html.Div(id="plot-output")
+                        ]),
+                        width=12
+                    )
+                ]),
+            ],
+            label="Time Domain",
+            tab_id="tab-time-domain",
+        ),
+        dbc.Tab(
+            [
+                # FFT Analysis tab - No longer contains signal selection
+                dbc.Row([
+                    dbc.Col(fft_controls_card, width=12)
+                ], className="mb-2"),
+                dbc.Row([
+                    dbc.Col(
+                        html.Div([
+                            html.Div(id="fft-plot-output")
+                        ]),
+                        width=12
+                    )
+                ]),
+            ],
+            label="FFT Analysis",
+            tab_id="tab-fft",
+        ),
+    ],
+    id="tabs",
+    active_tab="tab-time-domain",
+)
 
+# Updated app layout to REMOVE the global export button at the top
 app.layout = dbc.Container([
     # Data stores for maintaining state between callbacks
     dcc.Store(id="loaded-files", data={}),
     dcc.Store(id="file-path-list", data=[]),
     dcc.Store(id="current-plot-data", data={}),
     dcc.Store(id="current-figure", data=None),
+    dcc.Store(id="current-fft-figure", data=None),
+    dcc.Store(id="time-range-info", data={}),
+    dcc.Store(id="fft-annotations", data=[]),
     
-    # App title
-    html.H2("Remote OpenFAST Plotter", className="my-2"),
+    # App title - removed global export button
+    dbc.Row([
+        dbc.Col(html.H2("Remote OpenFAST Plotter", className="my-2"), width="auto"),
+        # REMOVED: dbc.Col(global_export_button, width="auto", className="d-flex align-items-center")
+    ], className="mb-2"),
     
     # File input section
     dbc.Row([
         dbc.Col(file_input_card, width=12)
     ], className="mb-2"),
     
-    # Plot controls section
+    # Global time range selection - Now just containing time range card (export card moved to top)
     dbc.Row([
-        dbc.Col([
-            plot_controls_card,
-            html.Div(loading_spinner, className="text-center my-3", id="loading-container", style={"display": "none"}),
-        ], width=12)
+        dbc.Col(time_range_card, width=12)
     ], className="mb-2"),
     
-    # Plot output section
+    # Global signal selection - Moved up, outside of tabs
     dbc.Row([
-        dbc.Col(
-            html.Div([
-                html.Div([
-                    html.A(id="file-info-link", children=[
-                        html.I(className="bi bi-info-circle me-1", style={"fontSize": "1.1rem"}),
-                        "File Info"
-                    ], href="#", className="text-decoration-none")
-                ], className="d-flex justify-content-end mb-1"),
-                html.Div(id="plot-output")
-            ]),
-            width=12
-        )
+        dbc.Col(signal_selection_card, width=12)
+    ], className="mb-2"),
+    
+    # Main content with tabs
+    dbc.Row([
+        dbc.Col(tabs, width=12)
     ]),
+    
     file_info_tooltip,
     
-    # Download component for HTML export
+    # Download components
     dcc.Download(id="download-html"),
+    dcc.Download(id="download-fft-html"),
+    # REMOVED: dcc.Download(id="download-all-html"),
     
     # Loading state store
     dcc.Store(id="is-loading", data=False),
@@ -532,6 +776,7 @@ def start_loading(n_clicks):
     Output("error-details-button", "style"),
     Output("error-details-collapse", "children"),
     Output("is-loading", "data"),
+    Output("time-range-info", "data"),
     Input("load-files-btn", "n_clicks"),
     Input("clear-files-btn", "n_clicks"),
     State("loaded-files", "data"),
@@ -555,11 +800,11 @@ def load_files_from_input(load_clicks, clear_clicks, current_loaded_files, curre
     
     if trigger_id == "clear-files-btn":
         DATAFRAMES = {}  # Clear the global dictionary
-        return {}, [], html.Div("All files cleared"), "", html.Div(), "0", {"display": "none"}, {"display": "none"}, [], False
+        return {}, [], html.Div("All files cleared"), "", html.Div(), "0", {"display": "none"}, {"display": "none"}, [], False, {}
     
     if not file_paths_input:
         current_files = current_loaded_files.get("files", [])
-        return current_loaded_files, current_file_paths, html.Div("No file paths entered", style={"color": "red"}), "", create_file_pills(current_files), str(len(current_files)), {"display": "none"}, {"display": "none"}, [], False
+        return current_loaded_files, current_file_paths, html.Div("No file paths entered", style={"color": "red"}), "", create_file_pills(current_files), str(len(current_files)), {"display": "none"}, {"display": "none"}, [], False, {}
     
     # Get currently loaded files
     current_files = set(current_loaded_files.get("files", []))
@@ -568,13 +813,13 @@ def load_files_from_input(load_clicks, clear_clicks, current_loaded_files, curre
     new_file_paths = [path.strip() for path in file_paths_input.split('\n') if path.strip()]
     
     if not new_file_paths:
-        return current_loaded_files, current_file_paths, html.Div("No file paths entered", style={"color": "red"}), "", create_file_pills(current_files), str(len(current_files)), {"display": "none"}, {"display": "none"}, [], False
+        return current_loaded_files, current_file_paths, html.Div("No file paths entered", style={"color": "red"}), "", create_file_pills(current_files), str(len(current_files)), {"display": "none"}, {"display": "none"}, [], False, {}
     
     # Detect which files are new and need to be processed
     new_files_to_process = [f for f in new_file_paths if f not in current_files]
     
     if not new_files_to_process:
-        return current_loaded_files, current_file_paths, html.Div("All files already loaded", style={"color": "blue"}), "", create_file_pills(current_files), str(len(current_files)), {"display": "none"}, {"display": "none"}, [], False
+        return current_loaded_files, current_file_paths, html.Div("All files already loaded", style={"color": "blue"}), "", create_file_pills(current_files), str(len(current_files)), {"display": "none"}, {"display": "none"}, [], False, {}
     
     # Validate file paths
     valid_paths = []
@@ -645,6 +890,23 @@ def load_files_from_input(load_clicks, clear_clicks, current_loaded_files, curre
         # Set visibility based on whether we have errors
         error_container_style = {"display": "block"} if has_errors else {"display": "none"}
         error_button_style = {"display": "block"} if has_errors else {"display": "none"}
+        
+        # Determine time range from loaded files
+        time_range_info = {}
+        if all_files:
+            for file_path in all_files:
+                if file_path in DATAFRAMES:
+                    df = DATAFRAMES[file_path]
+                    if 'Time' in df.columns or 'Time_[s]' in df.columns:
+                        time_col = 'Time_[s]' if 'Time_[s]' in df.columns else 'Time'
+                        min_time = df[time_col].min()
+                        max_time = df[time_col].max()
+                        
+                        if 'min_time' not in time_range_info or min_time < time_range_info['min_time']:
+                            time_range_info['min_time'] = min_time
+                        
+                        if 'max_time' not in time_range_info or max_time > time_range_info['max_time']:
+                            time_range_info['max_time'] = max_time
             
         return (
             {"files": all_files},
@@ -656,7 +918,8 @@ def load_files_from_input(load_clicks, clear_clicks, current_loaded_files, curre
             error_container_style,
             error_button_style,
             error_details,
-            False  # Loading done
+            False,  # Loading done
+            time_range_info
         )
     else:
         # No valid files to add
@@ -670,7 +933,8 @@ def load_files_from_input(load_clicks, clear_clicks, current_loaded_files, curre
             {"display": "none"},
             {"display": "none"},
             [],
-            False  # Loading done
+            False,  # Loading done
+            {}
         )
 
 # Toggle error details collapse
@@ -728,16 +992,20 @@ def create_file_pills(file_paths):
     Output("signalx", "value"),
     Output("signaly", "options"),
     Output("signaly", "value"),
-    Input("file-path-list", "data")
+    Output("time-start", "min"),
+    Output("time-start", "max"),
+    Output("time-end", "min"),
+    Output("time-end", "max"),
+    Input("file-path-list", "data"),
+    State("signalx", "value"),
+    State("signaly", "value"),
+    State("time-range-info", "data"),
+    prevent_initial_call=True
 )
-def update_signal_dropdowns(file_paths):
+def update_signal_dropdowns(file_paths, current_x, current_y, time_range_info):
     """
     Update signal dropdowns with available columns from loaded files.
-    
-    This function:
-    1. Gets column names from the first loaded DataFrame
-    2. Sets default X signal (usually Time)
-    3. Sets default Y signals based on common OpenFAST channels
+    Preserves current selections if they are valid.
     """
     global DATAFRAMES
     
@@ -757,37 +1025,91 @@ def update_signal_dropdowns(file_paths):
     df_columns = list(df.columns)
     sorted_columns = sorted(df_columns)
     
-    # Default x axis is usually Time_[s] or Time
-    default_x = "Time_[s]"
-    if default_x not in sorted_columns:
-        default_x = "Time" if "Time" in sorted_columns else sorted_columns[0]
+    # Determine default x axis if not set
+    default_x = current_x
+    if default_x is None or default_x not in sorted_columns:
+        default_x = "Time_[s]"
+        if default_x not in sorted_columns:
+            default_x = "Time" if "Time" in sorted_columns else sorted_columns[0]
     
-    # Default y axis could be a few common signals
-    common_signals = ["GenPwr_[kW]", "BldPitch1_[deg]", "RotSpeed_[rpm]", "WindVxi_[m/s]"]
-    default_y = []
-    
-    # Try to find common signals or alternatives
-    for signal in common_signals:
-        # Try to find the exact signal
-        if signal in sorted_columns:
-            default_y.append(signal)
-        else:
-            # Try to find a similar signal
-            base_name = signal.split('_')[0]
-            for col in sorted_columns:
-                if col.startswith(base_name):
-                    default_y.append(col)
-                    break
-    
-    # If no common signals found, use first few columns
-    if not default_y:
-        default_y = sorted_columns[:2]  # Take first 2 columns if common signals not found
+    # Determine default y signals if not set
+    default_y = current_y
+    if default_y is None or not default_y or not all(y in sorted_columns for y in default_y):
+        # Default y axis could be a few common signals
+        common_signals = ["GenPwr_[kW]", "BldPitch1_[deg]", "RotSpeed_[rpm]", "WindVxi_[m/s]"]
+        default_y = []
         
-    # Don't include x-axis in y-axis
-    if default_x in default_y:
-        default_y.remove(default_x)
+        # Try to find common signals or alternatives
+        for signal in common_signals:
+            # Try to find the exact signal
+            if signal in sorted_columns:
+                default_y.append(signal)
+            else:
+                # Try to find a similar signal
+                base_name = signal.split('_')[0]
+                for col in sorted_columns:
+                    if col.startswith(base_name):
+                        default_y.append(col)
+                        break
+        
+        # If no common signals found, use first few columns
+        if not default_y:
+            default_y = sorted_columns[:2]  # Take first 2 columns if common signals not found
+            
+        # Don't include x-axis in y-axis
+        if default_x in default_y:
+            default_y.remove(default_x)
     
-    return sorted_columns, default_x, sorted_columns, default_y
+    # Set up time range limits
+    min_time = 0
+    max_time = 1000
+    if 'min_time' in time_range_info and 'max_time' in time_range_info:
+        min_time = time_range_info['min_time']
+        max_time = time_range_info['max_time']
+    else:
+        # Default to first file's time range if no info available
+        time_col = default_x
+        try:
+            min_time = df[time_col].min()
+            max_time = df[time_col].max()
+        except KeyError:
+            # If time_col doesn't exist in the dataframe
+            pass
+    
+    return (
+        sorted_columns, 
+        default_x, 
+        sorted_columns, 
+        default_y,
+        min_time,
+        max_time,
+        min_time,
+        max_time
+    )
+
+# Modified: Update signal dropdowns callback - Now only reset time range when reset button is pressed
+@app.callback(
+    Output("time-start", "value"),
+    Output("time-end", "value"),
+    Input("reset-time-range-btn", "n_clicks"),
+    State("time-range-info", "data"),
+    prevent_initial_call=True
+)
+def reset_time_range(reset_clicks, time_range_info):
+    """
+    Reset time range control values when the reset button is clicked.
+    This callback ONLY affects the time range controls, not signal selection.
+    """
+    # Only triggered by reset button
+    if not reset_clicks:
+        raise PreventUpdate
+    
+    # Set values from time_range_info if available
+    if 'min_time' in time_range_info and 'max_time' in time_range_info:
+        return time_range_info['min_time'], time_range_info['max_time']
+    else:
+        # If no time range info available, return default None
+        return None, None
 
 # Update file information tooltip
 @app.callback(
@@ -829,9 +1151,11 @@ def update_file_info(loaded_files):
     State("signaly", "value"),
     State("plot-option", "value"),
     State("current-figure", "data"),
+    State("time-start", "value"),
+    State("time-end", "value"),
     prevent_initial_call=True
 )
-def update_plots(n_clicks, loaded_files, file_paths, signalx, signaly, plot_option, current_fig):
+def update_plots(n_clicks, loaded_files, file_paths, signalx, signaly, plot_option, current_fig, start_time, end_time):
     """
     Update plots based on selected signals and plot options.
     
@@ -839,6 +1163,7 @@ def update_plots(n_clicks, loaded_files, file_paths, signalx, signaly, plot_opti
     1. Creates plots based on user-selected signals
     2. Handles both overlay and separate plot modes
     3. Stores plot configuration for export
+    4. Applies time range filtering
     """
     global DATAFRAMES
     
@@ -854,25 +1179,38 @@ def update_plots(n_clicks, loaded_files, file_paths, signalx, signaly, plot_opti
         "file_paths": file_paths,
         "signalx": signalx,
         "signaly": signaly,
-        "plot_option": plot_option
+        "plot_option": plot_option,
+        "start_time": start_time,
+        "end_time": end_time
     }
     
-    # If overlay option or only one file, create a combined plot
-    if plot_option == "overlay" or len(file_paths) == 1:
-        # Prepare all dataframes for plot
-        dfs = []
-        valid_paths = []
-        for file_path in file_paths:
-            if file_path in DATAFRAMES:
-                df = DATAFRAMES[file_path]
-                dfs.append(df)
+    # Apply time range filtering to DataFrames
+    filtered_dfs = []
+    valid_paths = []
+    for file_path in file_paths:
+        if file_path in DATAFRAMES:
+            df = DATAFRAMES[file_path].copy()
+            
+            # Apply time filtering if specified
+            if start_time is not None or end_time is not None:
+                mask = pd.Series(True, index=df.index)
+                if start_time is not None:
+                    mask = mask & (df[signalx] >= start_time)
+                if end_time is not None:
+                    mask = mask & (df[signalx] <= end_time)
+                df = df[mask]
+            
+            if not df.empty:
+                filtered_dfs.append(df)
                 valid_paths.append(file_path)
-        
-        if not dfs:
-            return html.Div("No valid data to plot", style={"color": "red"}), {}, None
-        
+    
+    if not filtered_dfs:
+        return html.Div("No data in selected time range", style={"color": "red"}), plot_config, None
+    
+    # If overlay option or only one file, create a combined plot
+    if plot_option == "overlay" or len(valid_paths) == 1:
         # Generate new figure
-        fig = draw_graph(valid_paths, dfs, signalx, signaly, "overlay")
+        fig = draw_graph(valid_paths, filtered_dfs, signalx, signaly, "overlay")
         
         return dcc.Graph(figure=fig, id="main-plot-graph", config={'displayModeBar': True}), plot_config, fig
     
@@ -881,42 +1219,40 @@ def update_plots(n_clicks, loaded_files, file_paths, signalx, signaly, plot_opti
         plots = []
         figures = []
         
-        for file_path in file_paths:
-            if file_path in DATAFRAMES:
-                df = DATAFRAMES[file_path]
-                fig = draw_graph([file_path], [df], signalx, signaly, "separate")
-                figures.append(fig)
-                
-                plot_id = f"plot-{uuid.uuid4()}"
-                path_identifiers = get_unique_identifiers(file_paths)
-                
-                # Create card header with tooltip using an HTML div with data-bs-toggle
-                header_with_tooltip = html.Div(
-                    [
-                        path_identifiers[file_path],
-                        # Create tooltip using Bootstrap's data attributes
-                        html.Span(
-                            "ⓘ",
-                            id={"type": "file-path-tooltip", "index": plot_id},
-                            className="ms-2 text-muted",
-                            style={"cursor": "pointer", "fontSize": "0.8rem"}
-                        ),
-                        dbc.Tooltip(
-                            file_path,
-                            target={"type": "file-path-tooltip", "index": plot_id},
-                        )
-                    ],
-                    className="d-flex justify-content-between align-items-center"
-                )
-                
-                plots.append(
-                    dbc.Card([
-                        dbc.CardHeader(header_with_tooltip, className="p-2"),
-                        dbc.CardBody([
-                            dcc.Graph(figure=fig, id=plot_id, config={'displayModeBar': False})
-                        ], className="p-1")
-                    ], className="mb-3")
-                )
+        for i, (file_path, df) in enumerate(zip(valid_paths, filtered_dfs)):
+            fig = draw_graph([file_path], [df], signalx, signaly, "separate")
+            figures.append(fig)
+            
+            plot_id = f"plot-{uuid.uuid4()}"
+            path_identifiers = get_unique_identifiers(valid_paths)
+            
+            # Create card header with tooltip using an HTML div with data-bs-toggle
+            header_with_tooltip = html.Div(
+                [
+                    path_identifiers[file_path],
+                    # Create tooltip using Bootstrap's data attributes
+                    html.Span(
+                        "ⓘ",
+                        id={"type": "file-path-tooltip", "index": plot_id},
+                        className="ms-2 text-muted",
+                        style={"cursor": "pointer", "fontSize": "0.8rem"}
+                    ),
+                    dbc.Tooltip(
+                        file_path,
+                        target={"type": "file-path-tooltip", "index": plot_id},
+                    )
+                ],
+                className="d-flex justify-content-between align-items-center"
+            )
+            
+            plots.append(
+                dbc.Card([
+                    dbc.CardHeader(header_with_tooltip, className="p-2"),
+                    dbc.CardBody([
+                        dcc.Graph(figure=fig, id=plot_id, config={'displayModeBar': False})
+                    ], className="p-1")
+                ], className="mb-3")
+            )
         
         # Return only the first figure for export purposes
         first_fig = figures[0] if figures else None
@@ -959,26 +1295,40 @@ def download_plot_html(export_clicks, current_fig, plot_data):
         signalx = plot_data.get("signalx")
         signaly = plot_data.get("signaly", [])
         plot_option = plot_data.get("plot_option", "overlay")
+        start_time = plot_data.get("start_time")
+        end_time = plot_data.get("end_time")
         
         if not file_paths or not signalx or not signaly:
             raise PreventUpdate
         
-        # Generate plot to export
-        dfs = []
+        # Apply time range filtering to DataFrames
+        filtered_dfs = []
         valid_paths = []
         for file_path in file_paths:
             if file_path in DATAFRAMES:
-                dfs.append(DATAFRAMES[file_path])
-                valid_paths.append(file_path)
+                df = DATAFRAMES[file_path].copy()
+                
+                # Apply time filtering if specified
+                if start_time is not None or end_time is not None:
+                    mask = pd.Series(True, index=df.index)
+                    if start_time is not None:
+                        mask = mask & (df[signalx] >= start_time)
+                    if end_time is not None:
+                        mask = mask & (df[signalx] <= end_time)
+                    df = df[mask]
+                
+                if not df.empty:
+                    filtered_dfs.append(df)
+                    valid_paths.append(file_path)
         
-        if not dfs:
+        if not filtered_dfs:
             raise PreventUpdate
         
-        if plot_option == "overlay" or len(file_paths) == 1:
-            fig = draw_graph(valid_paths, dfs, signalx, signaly, "overlay")
+        if plot_option == "overlay" or len(valid_paths) == 1:
+            fig = draw_graph(valid_paths, filtered_dfs, signalx, signaly, "overlay")
         else:
             # For separate plots, use first file for the export
-            fig = draw_graph([valid_paths[0]], [dfs[0]], signalx, signaly, "separate")
+            fig = draw_graph([valid_paths[0]], [filtered_dfs[0]], signalx, signaly, "separate")
     
     # Generate the HTML content
     html_str = fig.to_html(include_plotlyjs='cdn')
@@ -993,9 +1343,512 @@ def download_plot_html(export_clicks, current_fig, plot_data):
         filename=filename
     )
 
+# Modified FFT Analysis calculation to support overlay option and linear x-axis scale
+@app.callback(
+    Output("fft-plot-output", "children"),
+    Output("current-fft-figure", "data"),
+    Input("fft-calculate-btn", "n_clicks"),
+    State("file-path-list", "data"),
+    State("signalx", "value"),
+    State("signaly", "value"),
+    State("fft-averaging", "value"),
+    State("fft-windowing", "value"),
+    State("fft-n-exp", "value"),
+    State("fft-detrend", "value"),
+    State("fft-x-limit", "value"),
+    State("fft-xscale", "value"),
+    State("fft-plot-style", "value"),
+    State("time-start", "value"),
+    State("time-end", "value"),
+    State("fft-annotations", "data"),
+    prevent_initial_call=True
+)
+def calculate_fft(n_clicks, file_paths, time_col, signals, averaging, windowing, n_exp, detrend, x_limit, xscale, plot_style, start_time, end_time, annotations):
+    """
+    Calculate FFT for all selected signals across all files.
+    
+    This function:
+    1. Retrieves the selected signals from all files
+    2. Applies time range filtering if specified
+    3. Calculates FFT using our custom module
+    4. Creates plots of the FFT results
+    """
+    global DATAFRAMES
+    
+    if not n_clicks:
+        raise PreventUpdate
+    
+    if not file_paths or not DATAFRAMES:
+        return html.Div("No files loaded", className="text-center p-5 text-muted"), None
+    
+    if not time_col:
+        return html.Div("Please select a time column (X Signal)", style={"color": "red"}), None
+    
+    if not signals or len(signals) == 0:
+        return html.Div("Please select at least one signal (Y Signal)", style={"color": "red"}), None
+    
+    # Convert detrend flag
+    detrend_bool = "detrend" in detrend  # Convert from list to bool
+    
+    # OVERLAY PLOT STYLE - All signals in a single figure
+    if plot_style == "overlay":
+        fig = go.Figure()
+        
+        # Create one figure with all signals and files
+        for signal_idx, signal in enumerate(signals):
+            for file_idx, file_path in enumerate(file_paths):
+                if file_path not in DATAFRAMES:
+                    continue
+                
+                df = DATAFRAMES[file_path]
+                
+                if signal not in df.columns or time_col not in df.columns:
+                    continue
+                
+                try:
+                    # Use our custom FFT implementation
+                    fft_result = compute_fft(
+                        df, 
+                        signal, 
+                        time_col=time_col,
+                        start_time=start_time,
+                        end_time=end_time,
+                        averaging=averaging,
+                        windowing=windowing,
+                        detrend=detrend_bool,
+                        n_exp=n_exp
+                    )
+                    
+                    # Extract results
+                    freq = fft_result.freq
+                    amp = fft_result.amplitude
+                    
+                    # Get file identifier for legend
+                    file_identifiers = get_unique_identifiers(file_paths)
+                    file_name = file_identifiers.get(file_path, os.path.basename(file_path))
+                    
+                    # Create a color palette for signals
+                    color_idx = signal_idx % len(plotly.colors.DEFAULT_PLOTLY_COLORS)
+                    base_color = plotly.colors.DEFAULT_PLOTLY_COLORS[color_idx]
+                    
+                    # Create line style variations for different files
+                    line_styles = ['solid', 'dash', 'dot', 'dashdot']
+                    line_style = line_styles[file_idx % len(line_styles)]
+                    
+                    # Add FFT trace to figure with unique name for legend
+                    fig.add_trace(go.Scatter(
+                        x=freq,
+                        y=amp,
+                        mode='lines',
+                        line=dict(
+                            color=base_color,
+                            dash=line_style if line_style != 'solid' else None
+                        ),
+                        name=f"{signal} - {file_name}"
+                    ))
+                    
+                except Exception as e:
+                    import traceback
+                    print(f"Error in FFT calculation for {file_path}, signal {signal}: {e}")
+                    print(traceback.format_exc())
+                    continue
+        
+        # Add annotation lines if any
+        if annotations:
+            for anno in annotations:
+                freq = anno["freq"]
+                label = anno["label"]
+                
+                # Skip if frequency is out of bounds
+                if x_limit and freq > x_limit:
+                    continue
+                
+                # Add vertical line
+                fig.add_shape(
+                    type="line",
+                    x0=freq, x1=freq,
+                    y0=0, y1=1,
+                    yref="paper",
+                    line=dict(color="rgba(0,0,0,0.5)", width=1, dash="dash"),
+                )
+                
+                # Add annotation text - positioned to the left of the line and within the plot area
+                # Position the label at 90% of the plot height to avoid overlap with the title
+                fig.add_annotation(
+                    x=freq,
+                    y=0.90,  # High in the plot, but not at the very top
+                    yref="paper",
+                    text=label,
+                    showarrow=False,
+                    textangle=0,  # Horizontal text
+                    xanchor="right",  # Place text to the left of the frequency line
+                    yanchor="middle",
+                    font=dict(size=10),
+                    bgcolor="rgba(255, 255, 255, 0.7)",  # Semi-transparent background
+                    borderpad=2
+                )
+        
+        # Update layout
+        fig.update_layout(
+            title='FFT Analysis - All Signals',
+            xaxis_title='Frequency (Hz)',
+            yaxis_title='Amplitude',
+            height=600,
+            margin=dict(l=50, r=20, t=60, b=50),
+            xaxis_type=xscale,  # Use selected x-axis scale
+            yaxis_type='log',
+            showlegend=True,
+            legend=dict(
+                orientation="v", 
+                yanchor="top", 
+                y=0.98, 
+                xanchor="right", 
+                x=0.99
+            )
+        )
+        
+        # Apply x-axis limit if specified
+        if x_limit and xscale == 'log':
+            fig.update_xaxes(range=[np.log10(0.001), np.log10(x_limit)])
+        elif x_limit:
+            fig.update_xaxes(range=[0, x_limit])
+        
+        # Create layout with plot
+        layout = dbc.Row([
+            dbc.Col(dcc.Graph(figure=fig, id="main-fft-graph", config={'displayModeBar': True}), width=12)
+        ])
+        
+        return layout, fig
+    
+    # SEPARATE PLOT STYLE - One plot per signal
+    else:
+        fft_panels = []
+        figures = []
+        
+        for signal in signals:
+            # Create a subplot for each signal
+            fig = go.Figure()
+            
+            file_results = []
+            
+            # Process each file
+            for i, file_path in enumerate(file_paths):
+                if file_path not in DATAFRAMES:
+                    continue
+                
+                df = DATAFRAMES[file_path]
+                
+                if signal not in df.columns or time_col not in df.columns:
+                    continue
+                
+                try:
+                    # Use our custom FFT implementation
+                    fft_result = compute_fft(
+                        df, 
+                        signal, 
+                        time_col=time_col,
+                        start_time=start_time,
+                        end_time=end_time,
+                        averaging=averaging,
+                        windowing=windowing,
+                        detrend=detrend_bool,
+                        n_exp=n_exp
+                    )
+                    
+                    # Extract results
+                    freq = fft_result.freq
+                    amp = fft_result.amplitude
+                    
+                    # Store for later use
+                    file_results.append({
+                        'file_path': file_path,
+                        'freq': freq,
+                        'amp': amp,
+                        'fft_result': fft_result
+                    })
+                    
+                    # Get file identifier for legend
+                    file_identifiers = get_unique_identifiers(file_paths)
+                    file_name = file_identifiers.get(file_path, os.path.basename(file_path))
+                    
+                    # Add FFT trace to figure
+                    fig.add_trace(go.Scatter(
+                        x=freq,
+                        y=amp,
+                        mode='lines',
+                        line=dict(color=plotly.colors.DEFAULT_PLOTLY_COLORS[i % len(plotly.colors.DEFAULT_PLOTLY_COLORS)]),
+                        name=file_name
+                    ))
+                    
+                except Exception as e:
+                    import traceback
+                    print(f"Error in FFT calculation for {file_path}, signal {signal}: {e}")
+                    print(traceback.format_exc())
+                    continue
+            
+            if not file_results:
+                continue
+            
+            # Add annotation lines if any
+            if annotations:
+                for anno in annotations:
+                    freq = anno["freq"]
+                    label = anno["label"]
+                    
+                    # Skip if frequency is out of bounds
+                    if x_limit and freq > x_limit:
+                        continue
+                    
+                    # Add vertical line
+                    fig.add_shape(
+                        type="line",
+                        x0=freq, x1=freq,
+                        y0=0, y1=1,
+                        yref="paper",
+                        line=dict(color="rgba(0,0,0,0.5)", width=1, dash="dash"),
+                    )
+                    
+                    # Add annotation text - positioned to the left of the line and within the plot area
+                    # Position the label at 90% of the plot height to avoid overlap with the title
+                    fig.add_annotation(
+                        x=freq,
+                        y=0.90,  # High in the plot, but not at the very top
+                        yref="paper",
+                        text=label,
+                        showarrow=False,
+                        textangle=0,  # Horizontal text
+                        xanchor="right",  # Place text to the left of the frequency line
+                        yanchor="middle",
+                        font=dict(size=10),
+                        bgcolor="rgba(255, 255, 255, 0.7)",  # Semi-transparent background
+                        borderpad=2
+                    )
+            
+            # Update layout
+            fig.update_layout(
+                title=f'FFT Analysis of {signal}',
+                xaxis_title='Frequency (Hz)',
+                yaxis_title='Amplitude',
+                height=500,
+                margin=dict(l=50, r=20, t=60, b=50),
+                xaxis_type=xscale,  # Use selected x-axis scale
+                yaxis_type='log',
+                showlegend=True,
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
+            )
+            
+            # Apply x-axis limit if specified
+            if x_limit and xscale == 'log':
+                fig.update_xaxes(range=[np.log10(0.001), np.log10(x_limit)])
+            elif x_limit:
+                fig.update_xaxes(range=[0, x_limit])
+                
+            figures.append(fig)
+                
+            # Add the graph to the panel    
+            fft_panels.append(
+                dbc.Card([
+                    dbc.CardHeader(f"FFT Analysis: {signal}"),
+                    dbc.CardBody([
+                        dcc.Graph(figure=fig, config={'displayModeBar': True})
+                    ])
+                ], className="mb-4")
+            )
+        
+        if not fft_panels:
+            return html.Div("No valid FFT results could be calculated. Please check your signal selections.", className="alert alert-warning"), None
+        
+        # Return the layout with all panels and the first figure for export
+        return html.Div(fft_panels), figures[0] if figures else None
+
+# Add a callback for exporting FFT plot as HTML
+@app.callback(
+    Output("download-fft-html", "data"),
+    Input("export-fft-btn", "n_clicks"),
+    State("current-fft-figure", "data"),
+    prevent_initial_call=True
+)
+def download_fft_html(export_clicks, current_fig):
+    """Generate and download an HTML file of the current FFT plot."""
+    if not export_clicks or current_fig is None:
+        raise PreventUpdate
+    
+    # Use the stored figure
+    fig = go.Figure(current_fig)
+    
+    # Generate the HTML content
+    html_str = fig.to_html(include_plotlyjs='cdn')
+    
+    # Create timestamp for filename
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"openfast_fft_{timestamp}.html"
+    
+    # Return the content as a download
+    return dict(
+        content=html_str,
+        filename=filename
+    )
+
+# Add callback to manage annotations
+@app.callback(
+    Output("fft-annotations", "data"),
+    Output("fft-annotations-display", "children"),
+    Output("fft-annotation-freq", "value"),
+    Output("fft-annotation-text", "value"),
+    Input("fft-add-annotation-btn", "n_clicks"),
+    Input("tabs", "active_tab"),  # Reset when switching tabs
+    State("fft-annotation-freq", "value"),
+    State("fft-annotation-text", "value"),
+    State("fft-annotations", "data"),
+    prevent_initial_call=True
+)
+def manage_fft_annotations(add_clicks, active_tab, freq_input, label_input, current_annotations):
+    """Add and manage annotations for FFT plots"""
+    trigger = ctx.triggered_id
+    
+    # Reset when switching to FFT tab
+    if trigger == "tabs" and active_tab == "tab-fft":
+        return [], [], None, None
+    
+    # Skip if no click or no input
+    if not add_clicks or not freq_input:
+        raise PreventUpdate
+    
+    # Parse frequency input
+    try:
+        freqs = [float(f.strip()) for f in freq_input.split(",") if f.strip()]
+    except ValueError:
+        # Handle parsing error
+        return current_annotations, [
+            html.Div("Invalid frequency format. Use comma-separated numbers.", 
+                     className="text-danger small")
+        ] + create_annotation_badges(current_annotations), freq_input, label_input
+    
+    # Parse labels - if not provided or fewer than freqs, generate automatic labels
+    if not label_input:
+        labels = [f"F{i+1}" for i in range(len(freqs))]
+    else:
+        labels = [l.strip() for l in label_input.split(",")]
+        # If fewer labels than frequencies, add generic labels
+        if len(labels) < len(freqs):
+            labels += [f"F{i+1}" for i in range(len(labels), len(freqs))]
+    
+    # Create new annotations
+    new_annotations = current_annotations.copy() if current_annotations else []
+    for freq, label in zip(freqs, labels):
+        new_annotations.append({"freq": freq, "label": label})
+    
+    # Sort by frequency
+    new_annotations.sort(key=lambda x: x["freq"])
+    
+    # Create badges for visual display
+    badges = create_annotation_badges(new_annotations)
+    
+    return new_annotations, badges, None, None
+
+def create_annotation_badges(annotations):
+    """Create badge components for annotation display"""
+    if not annotations:
+        return []
+    
+    badges = []
+    for i, anno in enumerate(annotations):
+        badges.append(
+            dbc.Badge(
+                [
+                    f"{anno['label']}: {anno['freq']} Hz",
+                    html.I(
+                        className="bi bi-x ms-1",
+                        id={"type": "remove-annotation", "index": i},
+                        style={"cursor": "pointer"}
+                    )
+                ],
+                color="info",
+                className="me-1 mb-1"
+            )
+        )
+    return badges
+
+# Add callback to remove individual annotations
+@app.callback(
+    Output("fft-annotations", "data", allow_duplicate=True),
+    Output("fft-annotations-display", "children", allow_duplicate=True),
+    Input({"type": "remove-annotation", "index": ALL}, "n_clicks"),
+    State("fft-annotations", "data"),
+    prevent_initial_call=True
+)
+def remove_annotation(n_clicks, current_annotations):
+    """Remove an annotation when its delete button is clicked"""
+    if not any(n_clicks):
+        raise PreventUpdate
+    
+    # Find which annotation to remove
+    triggered_id = ctx.triggered_id
+    if triggered_id and "index" in triggered_id:
+        index_to_remove = triggered_id["index"]
+        
+        # Remove the annotation
+        new_annotations = [a for i, a in enumerate(current_annotations) if i != index_to_remove]
+        
+        # Update badges
+        badges = create_annotation_badges(new_annotations)
+        
+        return new_annotations, badges
+    
+    raise PreventUpdate
+
 #######################
 # RUN THE APP
 #######################
 
+def run_server_with_retry(app, host='localhost', port=8050, max_retries=5):
+    """
+    Run the Dash server with automatic retry on port conflicts.
+    
+    Parameters:
+    -----------
+    app : dash.Dash
+        The Dash application instance
+    host : str
+        Host to bind the server to
+    port : int
+        Initial port to try
+    max_retries : int
+        Maximum number of port increments to try
+    
+    """
+    import socket
+    import time
+    
+    for attempt in range(max_retries):
+        try:
+            if attempt > 0:
+                print(f"Port {port-1} is in use. Trying port {port}...")
+            print(f"\nStarting Remote OpenFAST Plotter on http://{host}:{port}/")
+            print("Press Ctrl+C to abort the application.")
+            app.run(debug=True, host=host, port=port)
+            break
+        except OSError as e:
+            # Socket error - port likely in use
+            if "Address already in use" in str(e):
+                port += 1
+                time.sleep(2)  # Wait before trying the next port
+            else:
+                # Some other socket error, re-raise
+                raise
+    else:
+        # We've exhausted our retries
+        print(f"Could not find an available port after {max_retries} attempts.")
+        print(f"Please specify a different port using the --port argument.")
+
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8050)
+    import argparse
+    
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Remote OpenFAST Plotter')
+    parser.add_argument('--host', default='localhost', help='Host to bind the server to')
+    parser.add_argument('--port', type=int, default=8050, help='Port to bind the server to')
+    args = parser.parse_args()
+    
+    # Run the server with automatic retry
+    run_server_with_retry(app, host=args.host, port=args.port)

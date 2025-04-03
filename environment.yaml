@@ -14,5 +14,6 @@ dependencies:
   - openfast-io
   - requests
   - tqdm
+  - scipy>=1.9.0
   - pip:
     - dash-extensions
