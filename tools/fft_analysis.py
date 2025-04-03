@@ -152,6 +152,10 @@ def perform_binning(freq, psd, bins_per_decade=10):
     freq = np.asarray(freq)
     psd = np.asarray(psd)
     
+    # Handle empty arrays
+    if len(freq) == 0 or len(psd) == 0:
+        return np.array([]), np.array([])
+    
     # Skip zero frequency if present
     if freq[0] == 0:
         f0 = freq[0]
@@ -161,7 +165,7 @@ def perform_binning(freq, psd, bins_per_decade=10):
     else:
         f0 = None
     
-    # Safeguard against empty arrays
+    # Safeguard against empty arrays after removing zero
     if len(freq) == 0:
         return np.array([]), np.array([])
     

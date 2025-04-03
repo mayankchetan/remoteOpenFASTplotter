@@ -78,6 +78,40 @@ python utils/download_test_files.py --output /path/to/your/directory
 
 This will download sample `.outb` files from the OpenFAST r-test repository and print their paths, which you can then copy and paste into the application.
 
+## Running Tests Locally
+
+To run the test suite locally:
+
+1. Make sure you have the testing dependencies installed:
+   ```bash
+   pip install pytest pytest-cov flake8
+   ```
+
+2. Run the tests:
+   ```bash
+   # Run all tests
+   python -m pytest
+   
+   # Run specific test file
+   python -m pytest tests/test_utils.py
+   
+   # Run tests with coverage report
+   python -m pytest --cov=. --cov-report=term
+   ```
+
+3. For faster feedback during development, you can run a specific test function:
+   ```bash
+   python -m pytest tests/test_utils.py::test_unique_identifiers -v
+   
+   # Run tests matching a pattern
+   python -m pytest -k "fft"
+   ```
+
+Make sure to download the test files before running tests that depend on them:
+```bash
+python utils/download_test_files.py
+```
+
 ## Requirements
 
 - Python>=3.11

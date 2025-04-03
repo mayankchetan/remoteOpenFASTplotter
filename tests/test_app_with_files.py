@@ -6,9 +6,19 @@ These tests ensure that the app can properly load and display real data.
 import pytest
 import os
 import glob
-from dash.testing.application_runners import import_app
-from dash.testing.composite import DashComposite
 from pathlib import Path
+
+# Check if dash testing components are available
+try:
+    from dash.testing.application_runners import import_app
+    from dash.testing.composite import DashComposite
+    DASH_TESTING_AVAILABLE = True
+except ImportError:
+    DASH_TESTING_AVAILABLE = False
+
+# Skip all tests in this module if dash testing is not available
+pytestmark = pytest.mark.skipif(not DASH_TESTING_AVAILABLE, 
+                              reason="Dash testing components not available. Install psutil to enable.")
 
 # Initialize tests using pytest-dash
 @pytest.fixture

@@ -1,6 +1,16 @@
 import pytest
-from dash.testing.application_runners import import_app
-from dash.testing.composite import DashComposite
+
+# Check if dash testing components are available
+try:
+    from dash.testing.application_runners import import_app
+    from dash.testing.composite import DashComposite
+    DASH_TESTING_AVAILABLE = True
+except ImportError:
+    DASH_TESTING_AVAILABLE = False
+
+# Skip all tests in this module if dash testing is not available
+pytestmark = pytest.mark.skipif(not DASH_TESTING_AVAILABLE, 
+                              reason="Dash testing components not available. Install psutil to enable.")
 
 # Initialize tests using pytest-dash
 @pytest.fixture
