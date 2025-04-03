@@ -13,6 +13,8 @@ The frequency annotation feature allows you to mark and label important frequenc
 
 ## Using Frequency Annotations
 
+### Manual Annotations
+
 1. Navigate to the **FFT Analysis** tab
 2. Enter comma-separated frequencies in the **Frequency Annotations** input field
    ```
@@ -25,7 +27,17 @@ The frequency annotation feature allows you to mark and label important frequenc
 4. Click the **Add** button to add annotations
 5. Calculate your FFT as normal by clicking **Calculate FFT**
 
-The specified frequencies will be marked with vertical dashed lines on your FFT plots, and the labels will appear next to these lines.
+### Using Rotor RPM Feature
+
+For wind turbine analysis, you can quickly add harmonic annotations based on rotor speed:
+
+1. Enter the rotor speed in the **Rotor RPM** field
+2. Click **Add Harmonics** to automatically generate annotations for 1P through 10P
+3. The harmonics are calculated as follows:
+   - 1P = RPM ÷ 60 Hz (fundamental rotor frequency)
+   - 2P = 2 × 1P
+   - 3P = 3 × 1P
+   - etc.
 
 ## Example Annotations
 
@@ -44,6 +56,7 @@ Here are some common frequencies you might want to annotate in wind turbine anal
 - **Delete**: Click the '×' symbol on any annotation badge to remove it
 - **Reset**: Annotations are automatically cleared when you switch to the FFT tab
 - **Sort**: Annotations are automatically sorted by frequency
+- **Display**: Each annotation shows both the label and frequency value (with 2 decimal precision)
 
 ## Tips for Effective Annotations
 

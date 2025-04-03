@@ -535,26 +535,6 @@ fft_controls_card = dbc.Card([
         
         dbc.Row([
             dbc.Col([
-                dbc.Checklist(
-                    options=[{"label": "Detrend", "value": "detrend"}],
-                    value=["detrend"],  # Changed from [] to ["detrend"] to set default to True
-                    id="fft-detrend",
-                    inline=True,
-                    className="mt-2"
-                ),
-            ], width=3),
-            dbc.Col([
-                html.Label("X-axis Limit (Hz)"),
-                dbc.Input(
-                    id="fft-x-limit",
-                    type="number",
-                    min=0.001,
-                    step="any",
-                    placeholder="Max frequency",
-                    value=5  # Added default value of 5Hz
-                ),
-            ], width=3),
-            dbc.Col([
                 html.Label("X-axis Scale"),
                 dbc.RadioItems(
                     id="fft-xscale",
@@ -565,20 +545,44 @@ fft_controls_card = dbc.Card([
                     value="linear",  # Changed from "log" to "linear"
                     inline=True
                 ),
-            ], width=3),
+            ], width=4),
+            
             dbc.Col([
                 html.Label("Plot Style"),
-                dbc.RadioItems(
+                dcc.Dropdown(
                     id="fft-plot-style",
                     options=[
                         {"label": "Separate", "value": "separate"},
                         {"label": "Overlay", "value": "overlay"}
                     ],
-                    value="separate",
-                    inline=True
+                    value="separate"
                 ),
-            ], width=3),
+            ], width=4),
+            
+            dbc.Col([
+                html.Label("X-axis Limit (Hz)"),
+                dbc.Input(
+                    id="fft-x-limit",
+                    type="number",
+                    min=0.001,
+                    step="any",
+                    placeholder="Max frequency",
+                    value=5  # Added default value of 5Hz
+                ),
+            ], width=4),
         ], className="mb-3"),
+        
+        dbc.Row([
+            dbc.Col([
+                dbc.Checklist(
+                    options=[{"label": "Detrend", "value": "detrend"}],
+                    value=["detrend"],  # Changed from [] to ["detrend"] to set default to True
+                    id="fft-detrend",
+                    inline=True,
+                    className="mt-2 mb-3"
+                ),
+            ], width=12),
+        ]),
         
         # Add new annotations section
         dbc.Row([
@@ -591,6 +595,24 @@ fft_controls_card = dbc.Card([
                 ], size="sm"),
             ], width=12),
         ], className="mb-1"),
+        
+        # Rotor RPM input moved here between annotations input and display
+        dbc.Row([
+            dbc.Col([
+                html.Label("Rotor RPM", className="mt-3 mb-1"),
+                dbc.InputGroup([
+                    dbc.Input(
+                        id="rotor-rpm-input",
+                        type="number",
+                        placeholder="Enter rotor RPM",
+                        step="any",
+                        min=0
+                    ),
+                    dbc.InputGroupText("RPM"),
+                    dbc.Button("Add Harmonics", id="add-harmonics-btn", outline=True, color="secondary", size="sm"),
+                ], size="sm"),
+            ], width=12),
+        ], className="mb-3"),
         
         # Badge display for current annotations
         dbc.Row([
@@ -855,12 +877,12 @@ def load_files_from_input(load_clicks, clear_clicks, current_loaded_files, curre
             status_elements.append(
                 html.Span(f"✓ Loaded {len(new_dfs)} new files", style={"color": "green"})
             )
-            
+        
         if failed_paths:
             status_elements.append(
                 html.Span(f" | ⚠️ {len(failed_paths)} files failed to parse", style={"color": "red", "marginLeft": "10px"})
             )
-            
+        
         if invalid_paths:
             status_elements.append(
                 html.Span(f" | ⚠️ {len(invalid_paths)} files not found", style={"color": "red", "marginLeft": "10px"})
@@ -869,14 +891,13 @@ def load_files_from_input(load_clicks, clear_clicks, current_loaded_files, curre
         # Create error details content
         error_details = []
         has_errors = False
-        
         if failed_files:
             has_errors = True
             for path, error in failed_files:
                 error_details.append(html.Div([
                     html.Small(f"• {os.path.basename(path)}: {error}", className="text-danger")
                 ]))
-        
+            
         if invalid_paths:
             has_errors = True
             for path in invalid_paths:
@@ -901,7 +922,6 @@ def load_files_from_input(load_clicks, clear_clicks, current_loaded_files, curre
                         time_col = 'Time_[s]' if 'Time_[s]' in df.columns else 'Time'
                         min_time = df[time_col].min()
                         max_time = df[time_col].max()
-                        
                         if 'min_time' not in time_range_info or min_time < time_range_info['min_time']:
                             time_range_info['min_time'] = min_time
                         
@@ -933,7 +953,7 @@ def load_files_from_input(load_clicks, clear_clicks, current_loaded_files, curre
             {"display": "none"},
             {"display": "none"},
             [],
-            False,  # Loading done
+            False,
             {}
         )
 
@@ -956,7 +976,7 @@ def create_file_pills(file_paths):
     -----------
     file_paths : list
         List of file paths
-        
+    
     Returns:
     --------
     dash component
@@ -967,7 +987,7 @@ def create_file_pills(file_paths):
     
     # Get unique identifiers for file paths
     path_identifiers = get_unique_identifiers(file_paths)
-        
+    
     pills = []
     for path in sorted(file_paths):
         # Use unique identifier instead of just filename
@@ -983,9 +1003,8 @@ def create_file_pills(file_paths):
                 title=path  # Add full path as tooltip
             )
         )
-    
     return html.Div(pills)
-
+    
 # Update signal dropdowns based on loaded files
 @app.callback(
     Output("signalx", "options"),
@@ -1018,7 +1037,7 @@ def update_signal_dropdowns(file_paths, current_x, current_y, time_range_info):
     df = DATAFRAMES[first_path]
     if df is None or df.empty:
         raise PreventUpdate
-        
+    
     # Get column names
     df_columns = list(df.columns)
     sorted_columns = sorted(df_columns)
@@ -1053,11 +1072,11 @@ def update_signal_dropdowns(file_paths, current_x, current_y, time_range_info):
         # If no common signals found, use first few columns
         if not default_y:
             default_y = sorted_columns[:2]  # Take first 2 columns if common signals not found
-            
+        
         # Don't include x-axis in y-axis
         if default_x in default_y:
             default_y.remove(default_x)
-    
+        
     # Set up time range limits
     min_time = 0
     max_time = 1000
@@ -1075,9 +1094,9 @@ def update_signal_dropdowns(file_paths, current_x, current_y, time_range_info):
             pass
     
     return (
-        sorted_columns, 
-        default_x, 
-        sorted_columns, 
+        sorted_columns,
+        default_x,
+        sorted_columns,
         default_y,
         min_time,
         max_time,
@@ -1117,7 +1136,6 @@ def reset_time_range(reset_clicks, time_range_info):
 def update_file_info(loaded_files):
     """
     Update file information display with details about loaded files.
-    
     Shows file size, creation time, and modification time for each loaded file.
     """
     if not loaded_files or "files" not in loaded_files:
@@ -1206,7 +1224,7 @@ def update_plots(n_clicks, loaded_files, file_paths, signalx, signaly, plot_opti
     if plot_option == "overlay" or len(valid_paths) == 1:
         # Generate new figure
         fig = draw_graph(valid_paths, filtered_dfs, signalx, signaly, "overlay")
-        
+            
         return dcc.Graph(figure=fig, id="main-plot-graph", config={'displayModeBar': True}), plot_config, fig
     
     # If separate option, create individual plots for each file
@@ -1217,10 +1235,8 @@ def update_plots(n_clicks, loaded_files, file_paths, signalx, signaly, plot_opti
         for i, (file_path, df) in enumerate(zip(valid_paths, filtered_dfs)):
             fig = draw_graph([file_path], [df], signalx, signaly, "separate")
             figures.append(fig)
-            
             plot_id = f"plot-{uuid.uuid4()}"
             path_identifiers = get_unique_identifiers(valid_paths)
-            
             # Create card header with tooltip using an HTML div with data-bs-toggle
             header_with_tooltip = html.Div(
                 [
@@ -1239,7 +1255,6 @@ def update_plots(n_clicks, loaded_files, file_paths, signalx, signaly, plot_opti
                 ],
                 className="d-flex justify-content-between align-items-center"
             )
-            
             plots.append(
                 dbc.Card([
                     dbc.CardHeader(header_with_tooltip, className="p-2"),
@@ -1282,7 +1297,7 @@ def download_plot_html(export_clicks, current_fig, plot_data):
         # Fall back to regenerating the figure if needed
         if not plot_data:
             raise PreventUpdate
-            
+        
         # Extract plot configuration
         file_paths = plot_data.get("file_paths", [])
         signalx = plot_data.get("signalx")
@@ -1437,7 +1452,6 @@ def calculate_fft(n_clicks, file_paths, time_col, signals, averaging, windowing,
                         ),
                         name=f"{signal} - {file_name}"
                     ))
-                    
                 except Exception as e:
                     import traceback
                     print(f"Error in FFT calculation for {file_path}, signal {signal}: {e}")
@@ -1469,7 +1483,7 @@ def calculate_fft(n_clicks, file_paths, time_col, signals, averaging, windowing,
                     x=freq,
                     y=0.90,  # High in the plot, but not at the very top
                     yref="paper",
-                    text=label,
+                    text=f"{label}: {freq:.2f} Hz",  # Include frequency with 2 decimal places
                     showarrow=False,
                     textangle=0,  # Horizontal text
                     xanchor="right",  # Place text to the left of the frequency line
@@ -1570,7 +1584,6 @@ def calculate_fft(n_clicks, file_paths, time_col, signals, averaging, windowing,
                         line=dict(color=plotly.colors.DEFAULT_PLOTLY_COLORS[i % len(plotly.colors.DEFAULT_PLOTLY_COLORS)]),
                         name=file_name
                     ))
-                    
                 except Exception as e:
                     import traceback
                     print(f"Error in FFT calculation for {file_path}, signal {signal}: {e}")
@@ -1605,7 +1618,7 @@ def calculate_fft(n_clicks, file_paths, time_col, signals, averaging, windowing,
                         x=freq,
                         y=0.90,  # High in the plot, but not at the very top
                         yref="paper",
-                        text=label,
+                        text=f"{label}: {freq:.2f} Hz",  # Include frequency with 2 decimal places
                         showarrow=False,
                         textangle=0,  # Horizontal text
                         xanchor="right",  # Place text to the left of the frequency line
@@ -1633,7 +1646,7 @@ def calculate_fft(n_clicks, file_paths, time_col, signals, averaging, windowing,
                 fig.update_xaxes(range=[np.log10(0.001), np.log10(x_limit)])
             elif x_limit:
                 fig.update_xaxes(range=[0, x_limit])
-                
+            
             figures.append(fig)
                 
             # Add the graph to the panel    
@@ -1648,7 +1661,7 @@ def calculate_fft(n_clicks, file_paths, time_col, signals, averaging, windowing,
         
         if not fft_panels:
             return html.Div("No valid FFT results could be calculated. Please check your signal selections.", className="alert alert-warning"), None
-        
+            
         # Return the layout with all panels and the first figure for export
         return html.Div(fft_panels), figures[0] if figures else None
 
@@ -1666,10 +1679,10 @@ def download_fft_html(export_clicks, current_fig):
     
     # Use the stored figure
     fig = go.Figure(current_fig)
-    
+        
     # Generate the HTML content
     html_str = fig.to_html(include_plotlyjs='cdn')
-    
+        
     # Create timestamp for filename
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"openfast_fft_{timestamp}.html"
@@ -1791,7 +1804,7 @@ def create_annotation_badges(annotations):
         badges.append(
             dbc.Badge(
                 [
-                    f"{anno['label']}: {anno['freq']} Hz",
+                    f"{anno['label']}: {anno['freq']:.2f} Hz",  # Format frequency with 2 decimal places
                     html.I(
                         className="bi bi-x ms-1",
                         id={"type": "remove-annotation", "index": i},
@@ -1828,7 +1841,7 @@ def remove_annotation(n_clicks, current_annotations):
     
     Returns:
     --------
-    (list, list):
+    (list, list): 
         - Updated annotations data with the selected annotation removed
         - Updated annotation badges display
     """
@@ -1849,6 +1862,68 @@ def remove_annotation(n_clicks, current_annotations):
         return new_annotations, badges
     
     raise PreventUpdate
+
+# Add callback to generate harmonics from Rotor RPM
+@app.callback(
+    Output("fft-annotations", "data", allow_duplicate=True),
+    Output("fft-annotations-display", "children", allow_duplicate=True),
+    Output("rotor-rpm-input", "value"),
+    Input("add-harmonics-btn", "n_clicks"),
+    State("rotor-rpm-input", "value"),
+    State("fft-annotations", "data"),
+    prevent_initial_call=True
+)
+def generate_rotor_harmonics(n_clicks, rpm_value, current_annotations):
+    """
+    Generate frequency annotations for selected rotor harmonics (1P, 2P, 3P, 4P, 6P, 8P, 9P)
+    based on the rotor RPM input.
+    
+    Parameters:
+    -----------
+    n_clicks : int
+        Number of clicks on the Add Harmonics button
+    rpm_value : float
+        Rotor speed in RPM
+    current_annotations : list
+        List of current annotation objects
+    
+    Returns:
+    --------
+    (list, list, None): 
+        - Updated annotations data
+        - Updated annotations display badges
+        - Cleared RPM input
+    """
+    if not n_clicks or rpm_value is None or rpm_value <= 0:
+        raise PreventUpdate
+    
+    # Convert RPM to Hz (frequency)
+    freq_1p = rpm_value / 60.0
+    
+    # Define which harmonics to include
+    harmonics = [1, 2, 3, 4, 6, 8, 9]
+    
+    # Generate annotations for selected harmonics
+    new_annotations = current_annotations.copy() if current_annotations else []
+    for i in harmonics:  # Only selected harmonics
+        harmonic_freq = freq_1p * i
+        harmonic_label = f"{i}P"
+        
+        # Check if this harmonic already exists (avoid duplicates)
+        exists = any(abs(anno.get('freq', 0) - harmonic_freq) < 0.001 and 
+                    anno.get('label', '') == harmonic_label 
+                    for anno in new_annotations)
+        
+        if not exists:
+            new_annotations.append({"freq": harmonic_freq, "label": harmonic_label})
+    
+    # Sort by frequency
+    new_annotations.sort(key=lambda x: x["freq"])
+    
+    # Create badges for visual display
+    badges = create_annotation_badges(new_annotations)
+    
+    return new_annotations, badges, None
 
 #######################
 # RUN THE APP
