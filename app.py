@@ -1007,8 +1007,6 @@ def update_signal_dropdowns(file_paths, current_x, current_y, time_range_info):
     Update signal dropdowns with available columns from loaded files.
     Preserves current selections if they are valid.
     """
-    global DATAFRAMES
-    
     if not file_paths or not DATAFRAMES:
         raise PreventUpdate
     
@@ -1273,8 +1271,6 @@ def download_plot_html(export_clicks, current_fig, plot_data):
     3. Creates a standalone HTML file with the plot
     4. Returns the file for download
     """
-    # Access DATAFRAMES without global keyword - it's already available to the function
-
     if not export_clicks:
         raise PreventUpdate
 
@@ -1370,8 +1366,6 @@ def calculate_fft(n_clicks, file_paths, time_col, signals, averaging, windowing,
     3. Calculates FFT using our custom module
     4. Creates plots of the FFT results
     """
-    # Access DATAFRAMES without global keyword - it's already available to the function
-
     if not n_clicks:
         raise PreventUpdate
     
