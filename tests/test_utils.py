@@ -5,13 +5,15 @@ import sys
 from pathlib import Path
 import pandas as pd
 
-# Try to import directly or with path adjustment
+# Import the utility functions from our modules
 try:
-    from app import get_unique_identifiers, remove_duplicated_legends, draw_graph
+    from utils import get_unique_identifiers, remove_duplicated_legends, draw_graph
+    from data_manager import get_file_info, load_file
 except ImportError:
     # If direct import fails, adjust the path
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from app import get_unique_identifiers, remove_duplicated_legends, draw_graph
+    from utils import get_unique_identifiers, remove_duplicated_legends, draw_graph
+    from data_manager import get_file_info, load_file
 
 import plotly.graph_objects as go
 
@@ -80,13 +82,6 @@ def test_remove_duplicated_legends():
 # Test file info utility
 def test_file_info():
     """Test if the file info function works correctly with sample files"""
-    # Use relative import
-    try:
-        from app import get_file_info
-    except ImportError:
-        sys.path.insert(0, str(Path(__file__).parent.parent))
-        from app import get_file_info
-    
     # Create a temporary file with content and flush to ensure it's written
     import tempfile
     temp = tempfile.NamedTemporaryFile(delete=False)
@@ -137,9 +132,6 @@ def test_draw_graph_with_files(test_files):
     if not test_files:
         pytest.skip("No test files available")
     
-    # Import necessary items for loading files    
-    from app import load_file
-    
     # Load the test files
     file_data = []
     for file_path in test_files[:2]:  # Use at most 2 files
@@ -175,11 +167,7 @@ def test_draw_graph_with_files(test_files):
 # Add test for annotation badge creation
 def test_annotation_badges():
     """Test the annotation badge creation function"""
-    try:
-        from app import create_annotation_badges
-    except ImportError:
-        sys.path.insert(0, str(Path(__file__).parent.parent))
-        from app import create_annotation_badges
+    from utils import create_annotation_badges
     
     # Test empty annotations
     badges = create_annotation_badges([])

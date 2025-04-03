@@ -78,6 +78,19 @@ python utils/download_test_files.py --output /path/to/your/directory
 
 This will download sample `.outb` files from the OpenFAST r-test repository and print their paths, which you can then copy and paste into the application.
 
+## Project Structure
+
+The application is organized with a modular architecture:
+
+- `app.py` - Main entry point and server configuration
+- `data_manager.py` - Data loading and storage functionality
+- `utils.py` - Utility functions for plotting and data processing
+- `components.py` - UI components and layout definitions
+- `callbacks.py` - All interactive callback functions
+- `tools/` - Specialized modules (e.g., FFT analysis)
+
+For more information about the architecture, see [Architecture Documentation](docs/architecture.md).
+
 ## Running Tests Locally
 
 To run the test suite locally:
@@ -110,6 +123,18 @@ To run the test suite locally:
 Make sure to download the test files before running tests that depend on them:
 ```bash
 python utils/download_test_files.py
+```
+
+## Docker Support
+
+You can also run the application using Docker:
+
+```bash
+# Build the Docker image
+docker build -t openfast-plotter .
+
+# Run the container
+docker run -p 8050:8050 openfast-plotter
 ```
 
 ## Requirements

@@ -1,4 +1,6 @@
 import pytest
+import sys
+from pathlib import Path
 
 # Check if dash testing components are available
 try:
@@ -17,6 +19,9 @@ pytestmark = pytest.mark.skipif(not DASH_TESTING_AVAILABLE,
 def dash_duo():
     with DashComposite() as dc:
         yield dc
+
+# Ensure the application path is in sys.path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Test if the app initializes correctly
 def test_app_initialization(dash_duo):
