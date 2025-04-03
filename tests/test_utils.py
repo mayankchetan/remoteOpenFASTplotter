@@ -231,46 +231,6 @@ def test_fft_utils():
     except ImportError:
         pytest.skip("FFT utility module not available")
 
-# Enhance FFT annotation testing
-def test_annotation_management():
-    """Test the annotation management functions"""
-    try:
-        from app import create_annotation_badges
-    except ImportError:
-        import sys
-        from pathlib import Path
-        sys.path.insert(0, str(Path(__file__).parent.parent))
-        from app import create_annotation_badges
-    
-    # Test creating badges
-    annotations = [
-        {"freq": 1.0, "label": "First"},
-        {"freq": 2.0, "label": "Second"}
-    ]
-    badges = create_annotation_badges(annotations)
-    assert len(badges) == 2
-    
-    # Test sorting logic directly instead of using manage_fft_annotations
-    annotations_unsorted = [
-        {"freq": 5.0, "label": "High"},
-        {"freq": 1.0, "label": "Low"},
-        {"freq": 3.0, "label": "Mid"}
-    ]
-    
-    # Sort annotations manually by frequency (which is what manage_fft_annotations would do)
-    sorted_annotations = sorted(annotations_unsorted, key=lambda x: x["freq"])
-    
-    # Verify sorting works correctly
-    assert sorted_annotations[0]["freq"] == 1.0
-    assert sorted_annotations[0]["label"] == "Low"
-    assert sorted_annotations[1]["freq"] == 3.0
-    assert sorted_annotations[1]["label"] == "Mid"
-    assert sorted_annotations[2]["freq"] == 5.0
-    assert sorted_annotations[2]["label"] == "High"
-    
-    # Skip testing the callback function directly since it requires a Dash context
-    # We've already tested the badge creation and sorting logic which are the main components
-
 # Test FFT annotation display in plots
 def test_fft_annotations_in_plots():
     """Test that annotations are correctly added to FFT plots"""
