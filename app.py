@@ -1165,10 +1165,7 @@ def update_plots(n_clicks, loaded_files, file_paths, signalx, signaly, plot_opti
     3. Stores plot configuration for export
     4. Applies time range filtering
     """
-    global DATAFRAMES
-    
-    # Use ctx.triggered to determine the triggering input
-    trigger = ctx.triggered_id
+    # Access DATAFRAMES without global keyword - it's already available to the function
     
     # Check if we have valid input data
     if not loaded_files or "files" not in loaded_files or not file_paths or not DATAFRAMES or not signalx or not signaly:
@@ -1276,8 +1273,8 @@ def download_plot_html(export_clicks, current_fig, plot_data):
     3. Creates a standalone HTML file with the plot
     4. Returns the file for download
     """
-    global DATAFRAMES
-    
+    # Access DATAFRAMES without global keyword - it's already available to the function
+
     if not export_clicks:
         raise PreventUpdate
 
@@ -1373,8 +1370,8 @@ def calculate_fft(n_clicks, file_paths, time_col, signals, averaging, windowing,
     3. Calculates FFT using our custom module
     4. Creates plots of the FFT results
     """
-    global DATAFRAMES
-    
+    # Access DATAFRAMES without global keyword - it's already available to the function
+
     if not n_clicks:
         raise PreventUpdate
     
@@ -1703,7 +1700,36 @@ def download_fft_html(export_clicks, current_fig):
     prevent_initial_call=True
 )
 def manage_fft_annotations(add_clicks, active_tab, freq_input, label_input, current_annotations):
-    """Add and manage annotations for FFT plots"""
+    """
+    Add and manage annotations for FFT plots
+    
+    This callback handles:
+    1. Adding new frequency annotations when the Add button is clicked
+    2. Clearing annotations when switching to the FFT tab
+    3. Validating frequency input to ensure it's numerical
+    4. Auto-generating labels if not provided
+    
+    Parameters:
+    -----------
+    add_clicks : int
+        Number of times the add button has been clicked
+    active_tab : str
+        Currently active tab ID
+    freq_input : str
+        Comma-separated list of frequencies to annotate
+    label_input : str
+        Comma-separated list of labels for annotations
+    current_annotations : list
+        List of current annotation objects
+    
+    Returns:
+    --------
+    (list, list, str, str): 
+        - Updated annotations data
+        - Updated annotations display badges
+        - Cleared frequency input
+        - Cleared label input
+    """
     trigger = ctx.triggered_id
     
     # Reset when switching to FFT tab
@@ -1747,7 +1773,22 @@ def manage_fft_annotations(add_clicks, active_tab, freq_input, label_input, curr
     return new_annotations, badges, None, None
 
 def create_annotation_badges(annotations):
-    """Create badge components for annotation display"""
+    """
+    Create badge components for annotation display
+    
+    Generates interactive Bootstrap badges for each annotation with a 
+    delete button that allows removing individual annotations.
+    
+    Parameters:
+    -----------
+    annotations : list of dict
+        List of annotation objects, each with 'freq' and 'label' keys
+    
+    Returns:
+    --------
+    list
+        List of dbc.Badge components
+    """
     if not annotations:
         return []
     
@@ -1778,7 +1819,25 @@ def create_annotation_badges(annotations):
     prevent_initial_call=True
 )
 def remove_annotation(n_clicks, current_annotations):
-    """Remove an annotation when its delete button is clicked"""
+    """
+    Remove an annotation when its delete button is clicked
+    
+    This callback uses pattern-matching to identify which annotation's
+    delete button was clicked, and removes that annotation from the list.
+    
+    Parameters:
+    -----------
+    n_clicks : list of int
+        Number of clicks for each remove button
+    current_annotations : list
+        List of current annotation objects
+    
+    Returns:
+    --------
+    (list, list):
+        - Updated annotations data with the selected annotation removed
+        - Updated annotation badges display
+    """
     if not any(n_clicks):
         raise PreventUpdate
     

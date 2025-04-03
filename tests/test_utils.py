@@ -3,6 +3,7 @@ import os
 import glob
 import sys
 from pathlib import Path
+import pandas as pd
 
 # Try to import directly or with path adjustment
 try:
@@ -204,6 +205,7 @@ def test_fft_utils():
     """Test the FFT utility functions"""
     try:
         import numpy as np
+        import pandas as pd  # Already imported at the top, but keeping for clarity
         from tools.fft_analysis import compute_fft, FFTResult
         
         # Create a simple test signal: sine wave with frequency 10 Hz
