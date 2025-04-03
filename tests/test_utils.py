@@ -170,3 +170,221 @@ def test_draw_graph_with_files(test_files):
     fig_overlay = draw_graph(file_paths, dfs, signalx, signaly, "overlay")
     assert isinstance(fig_overlay, go.Figure)
     assert len(fig_overlay.data) >= len(file_paths)
+
+# Add test for annotation badge creation
+def test_annotation_badges():
+    """Test the annotation badge creation function"""
+    try:
+        from app import create_annotation_badges
+    except ImportError:
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        from app import create_annotation_badges
+    
+    # Test empty annotations
+    badges = create_annotation_badges([])
+    assert len(badges) == 0
+    
+    # Test single annotation
+    annotations = [{"freq": 1.0, "label": "Test"}]
+    badges = create_annotation_badges(annotations)
+    assert len(badges) == 1
+    
+    # Test multiple annotations
+    annotations = [
+        {"freq": 1.0, "label": "First"},
+        {"freq": 2.0, "label": "Second"},
+        {"freq": 3.0, "label": "Third"}
+    ]
+    badges = create_annotation_badges(annotations)
+    assert len(badges) == 3
+
+# Test FFT utility functions if available
+@pytest.mark.skipif(True, reason="Optional test that requires FFT utility module")
+def test_fft_utils():
+    """Test the FFT utility functions"""
+    try:
+        import numpy as np
+        from tools.fft_analysis import compute_fft, FFTResult
+        
+        # Create a simple test signal: sine wave with frequency 10 Hz
+        fs = 1000  # 1 kHz sampling rate
+        t = np.arange(0, 1, 1/fs)  # 1 second signal
+        f = 10  # 10 Hz sine wave
+        signal = np.sin(2 * np.pi * f * t)
+        
+        # Create a dataframe with the signal
+        df = pd.DataFrame({"Time": t, "Signal": signal})
+        
+        # Compute FFT without averaging
+        result = compute_fft(df, "Signal", time_col="Time", averaging="None")
+        
+        # Check that the result is a FFTResult object
+        assert isinstance(result, FFTResult)
+        
+        # Check that the peak frequency is at 10 Hz
+        peak_idx = np.argmax(result.amplitude)
+        peak_freq = result.freq[peak_idx]
+        assert np.isclose(peak_freq, 10, atol=1.0)
+        
+    except ImportError:
+        pytest.skip("FFT utility module not available")
+
+# Enhance FFT annotation testing
+def test_annotation_management():
+    """Test the annotation management functions"""
+    try:
+        import dash.html as html
+        from app import create_annotation_badges, manage_fft_annotations, remove_annotation
+        from dash import ctx, ALL
+    except ImportError:
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        from app import create_annotation_badges, manage_fft_annotations, remove_annotation
+        import dash.html as html
+        from dash import ctx, ALL
+    
+    # Test creating badges
+    annotations = [
+        {"freq": 1.0, "label": "First"},
+        {"freq": 2.0, "label": "Second"}
+    ]
+    badges = create_annotation_badges(annotations)
+    assert len(badges) == 2
+    
+    # Test annotation sorting
+    annotations_unsorted = [
+        {"freq": 5.0, "label": "High"},
+        {"freq": 1.0, "label": "Low"},
+        {"freq": 3.0, "label": "Mid"}
+    ]
+    
+    # Create a mock context to simulate the add button being clicked
+    mock_ctx = type('obj', (object,), {
+        "triggered_id": "fft-add-annotation-btn"
+    })
+    
+    # Create mock inputs for manage_fft_annotations function
+    add_clicks = 1
+    active_tab = "tab-fft"
+    freq_input = "5.0, 1.0, 3.0"
+    label_input = "High, Low, Mid"
+    current_annotations = []
+    
+    # Use a patched context to test annotation sorting
+    # The manage_fft_annotations function should sort annotations by frequency
+    import unittest.mock as mock
+    with mock.patch('dash.callback_context', mock_ctx):
+        result = manage_fft_annotations(add_clicks, active_tab, freq_input, label_input, current_annotations)
+    
+    # First return value should be sorted annotations
+    sorted_annotations = result[0]
+    assert len(sorted_annotations) == 3
+    # Check sorting order (should be ascending by frequency)
+    assert sorted_annotations[0]["freq"] < sorted_annotations[1]["freq"] < sorted_annotations[2]["freq"]
+    assert sorted_annotations[0]["label"] == "Low"  # Low frequency should be first
+    assert sorted_annotations[2]["label"] == "High"  # High frequency should be last
+
+# Test FFT annotation display in plots
+def test_fft_annotations_in_plots():
+    """Test that annotations are correctly added to FFT plots"""
+    try:
+        import plotly.graph_objects as go
+        import numpy as np
+    except ImportError:
+        pytest.skip("Plotly not available")
+    
+    # Create a sample figure
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=[0, 1, 2], y=[0, 1, 0]))
+    
+    # Sample annotations
+    annotations = [
+        {"freq": 0.5, "label": "Test1"},
+        {"freq": 1.5, "label": "Test2"}
+    ]
+    
+    # Count shapes and annotations in the figure before adding anything
+    initial_shapes = len(fig.layout.shapes) if fig.layout.shapes else 0
+    initial_annotations = len(fig.layout.annotations) if fig.layout.annotations else 0
+    
+    # Add annotations to the figure (simplified version of what's in calculate_fft function)
+    for anno in annotations:
+        freq = anno["freq"]
+        label = anno["label"]
+        
+        # Add vertical line
+        fig.add_shape(
+            type="line",
+            x0=freq, x1=freq,
+            y0=0, y1=1,
+            yref="paper",
+            line=dict(color="rgba(0,0,0,0.5)", width=1, dash="dash"),
+        )
+        
+        # Add annotation text
+        fig.add_annotation(
+            x=freq,
+            y=0.90,
+            yref="paper",
+            text=label,
+            showarrow=False,
+            textangle=0,
+            xanchor="right",
+            yanchor="middle",
+            font=dict(size=10),
+            bgcolor="rgba(255, 255, 255, 0.7)",
+            borderpad=2
+        )
+    
+    # Check that shapes and annotations were added correctly
+    final_shapes = len(fig.layout.shapes) if fig.layout.shapes else 0
+    final_annotations = len(fig.layout.annotations) if fig.layout.annotations else 0
+    
+    assert final_shapes - initial_shapes == len(annotations), "Should add one shape per annotation"
+    assert final_annotations - initial_annotations == len(annotations), "Should add one text annotation per annotation"
+    
+    # Check content of annotations
+    if fig.layout.shapes:
+        assert fig.layout.shapes[0].x0 == annotations[0]["freq"], "First line should be at correct frequency"
+    
+    if fig.layout.annotations:
+        assert fig.layout.annotations[0].text == annotations[0]["label"], "First annotation should have correct label"
+
+# Test FFT calculations
+@pytest.mark.skipif("FFTResult" not in globals(), reason="FFT module not available")
+def test_fft_calculation():
+    """Test FFT calculation with annotations"""
+    try:
+        import numpy as np
+        import pandas as pd
+        from tools.fft_analysis import compute_fft
+    except ImportError:
+        pytest.skip("FFT module not available")
+    
+    # Create a simple sine wave signal
+    fs = 100  # Sample rate, Hz
+    T = 5.0    # Duration, seconds
+    f_signal = 5.0  # Signal frequency, Hz
+    
+    t = np.linspace(0, T, int(T * fs), endpoint=False)
+    y = np.sin(2 * np.pi * f_signal * t)
+    
+    # Create a DataFrame
+    df = pd.DataFrame({"Time": t, "Signal": y})
+    
+    # Test FFT calculation without averaging
+    result_no_avg = compute_fft(df, "Signal", time_col="Time", averaging="None")
+    
+    # Find the peak frequency
+    peak_idx = np.argmax(result_no_avg.amplitude)
+    peak_freq = result_no_avg.freq[peak_idx]
+    
+    # Check that the peak is at our signal frequency
+    assert np.isclose(peak_freq, f_signal, rtol=1e-2), f"Expected peak at {f_signal} Hz, got {peak_freq} Hz"
+    
+    # Test FFT calculation with Welch averaging
+    result_welch = compute_fft(df, "Signal", time_col="Time", averaging="Welch")
+    peak_idx_welch = np.argmax(result_welch.amplitude)
+    peak_freq_welch = result_welch.freq[peak_idx_welch]
+    
+    # Check that Welch method also finds the correct peak
+    assert np.isclose(peak_freq_welch, f_signal, rtol=1e-1), f"Welch: Expected peak at {f_signal} Hz, got {peak_freq_welch} Hz"

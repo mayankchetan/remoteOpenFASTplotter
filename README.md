@@ -12,6 +12,8 @@ A Dash web application for reading and plotting OpenFAST output files on remote 
 - **Comparison Mode**: Overlay plots from different files for easy comparison
 - **Memory Efficiency**: Uses server-side DataFrame storage for improved performance with large datasets
 - **Direct Export**: Export plots as standalone HTML files for sharing and reporting
+- **FFT Analysis**: Frequency analysis with configurable parameters
+- **Frequency Annotations**: Mark and label important frequencies in FFT plots
 - **User-Friendly Interface**: Simple and intuitive UI with tooltips and visual feedback
 
 ## Installation
@@ -51,9 +53,16 @@ A Dash web application for reading and plotting OpenFAST output files on remote 
    - Choose display option (Overlay Files or Separate Files)
    - Click "Update Plot" to generate visualizations
 
-5. Export and share:
+5. Perform FFT Analysis:
+   - Switch to the FFT Analysis tab
+   - Configure FFT parameters (averaging method, windowing, etc.)
+   - Add frequency annotations to mark important resonances or harmonics
+   - Click "Calculate FFT" to generate FFT plots
+
+6. Export and share:
    - Click "Export Plot as HTML" to download a standalone HTML file
-   - Share the HTML file with others (no software needed to view)
+   - Click "Export FFT as HTML" to download FFT results
+   - Share the HTML files with others (no software needed to view)
 
 ## Testing with Example Files
 
