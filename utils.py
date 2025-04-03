@@ -10,6 +10,7 @@ import plotly.colors
 from dash import html
 from plotly.subplots import make_subplots
 import dash_bootstrap_components as dbc
+from datetime import datetime
 
 def remove_duplicated_legends(fig):
     """

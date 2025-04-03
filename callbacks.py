@@ -913,29 +913,114 @@ def register_callbacks(app):
             # Return the layout with all panels and the first figure for export
             return html.Div(fft_panels), figures[0] if figures else None
 
-    # Export FFT plot as HTML
+    # Export FFT plot as HTML with enhanced details
     @app.callback(
         Output("download-fft-html", "data"),
         Input("export-fft-btn", "n_clicks"),
         State("current-fft-figure", "data"),
+        State("signalx", "value"),
+        State("signaly", "value"),
+        State("time-start", "value"),
+        State("time-end", "value"),
+        State("fft-averaging", "value"),
+        State("fft-windowing", "value"),
+        State("fft-n-exp", "value"),
+        State("fft-detrend", "value"),
+        State("fft-x-limit", "value"),
+        State("fft-xscale", "value"),
+        State("fft-annotations", "data"),
         prevent_initial_call=True
     )
-    def download_fft_html(export_clicks, current_fig):
-        """Generate and download an HTML file of the current FFT plot."""
+    def download_fft_html(export_clicks, current_fig, signalx, signaly, time_start, time_end, 
+                         averaging, windowing, n_exp, detrend, x_limit, xscale, annotations):
+        """
+        Generate and download an HTML file of the current FFT plot
+        with detailed settings and annotations.
+        """
         if not export_clicks or current_fig is None:
             raise PreventUpdate
         
         # Use the stored figure
         fig = go.Figure(current_fig)
             
-        # Generate the HTML content
-        html_str = fig.to_html(include_plotlyjs='cdn')
-            
         # Create timestamp for filename
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"openfast_fft_{timestamp}.html"
         
-        # Return the content as a download
+        # Create detailed settings table
+        settings_html = f"""
+        <div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+            <h4>FFT Analysis Settings</h4>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr>
+                    <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd; background-color: #f1f1f1;">Setting</th>
+                    <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd; background-color: #f1f1f1;">Value</th>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">X Signal</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{signalx}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">Y Signal(s)</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{", ".join(signaly) if isinstance(signaly, list) else signaly}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">Time Range</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{time_start if time_start is not None else "Start"} to {time_end if time_end is not None else "End"} seconds</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">Averaging Method</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{averaging}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">Window Function</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{windowing}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">2^n Exponent</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{n_exp}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">Detrend</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{"Yes" if "detrend" in detrend else "No"}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">X-axis Scale</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{xscale}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">X-axis Limit</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">{x_limit} Hz</td>
+                </tr>
+            </table>
+        """
+        
+        # Add annotations if available
+        if annotations and len(annotations) > 0:
+            settings_html += """
+            <h4 style="margin-top: 15px;">Frequency Annotations</h4>
+            <ul>
+            """
+            
+            for anno in annotations:
+                settings_html += f"""
+                <li>{anno['label']}: {anno['freq']:.2f} Hz</li>
+                """
+            
+            settings_html += "</ul>"
+            
+        settings_html += "</div>"
+        
+        # Generate the HTML with the figure and settings
+        fig_html = fig.to_html(include_plotlyjs='cdn')
+        
+        # Insert settings after the plot
+        split_point = fig_html.find('</body>')
+        if split_point > 0:
+            html_str = fig_html[:split_point] + settings_html + fig_html[split_point:]
+        else:
+            html_str = fig_html
+        
         return dict(
             content=html_str,
             filename=filename

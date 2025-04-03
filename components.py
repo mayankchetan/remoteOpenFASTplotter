@@ -5,6 +5,40 @@ Contains layout components and UI elements
 
 import dash_bootstrap_components as dbc
 from dash import dcc, html
+import datetime
+import socket
+import getpass
+import subprocess
+from pathlib import Path
+import os
+
+def get_metadata():
+    """Gather metadata for plot exports"""
+    # Get current date and time
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Get system info (NREL_CLUSTER or hostname)
+    system_name = os.environ.get("NREL_CLUSTER", socket.gethostname())
+    
+    # Get username
+    username = getpass.getuser()
+    
+    # Try to get git version info
+    try:
+        git_version = subprocess.check_output(
+            ["git", "describe", "--abbrev=8", "--always", "--tags", "--dirty"],
+            cwd=Path(__file__).parent,
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except (subprocess.SubprocessError, FileNotFoundError):
+        git_version = "unknown"
+    
+    return {
+        "datetime": now,
+        "system": system_name,
+        "user": username,
+        "version": git_version
+    }
 
 # Loading spinner for visual feedback during file loading
 loading_spinner = dbc.Spinner(
@@ -171,6 +205,16 @@ plot_controls_card = dbc.Card([
                 width="auto"
             ),
         ]),
+        # Add metadata info that will be included in exports
+        dbc.Row([
+            dbc.Col(
+                html.Small(
+                    "Exports include metadata: date/time, system, user, and version info",
+                    className="text-muted mt-2"
+                ),
+                width=12
+            )
+        ])
     ])
 ])
 
@@ -324,6 +368,16 @@ fft_controls_card = dbc.Card([
                 width="auto"
             ),
         ]),
+        # Add metadata info that will be included in exports
+        dbc.Row([
+            dbc.Col(
+                html.Small(
+                    "Exports include metadata: date/time, system, user, and version info",
+                    className="text-muted mt-2"
+                ),
+                width=12
+            )
+        ])
     ])
 ])
 
@@ -389,10 +443,12 @@ def create_layout():
         dcc.Store(id="current-fft-figure", data=None),
         dcc.Store(id="time-range-info", data={}),
         dcc.Store(id="fft-annotations", data=[]),
+        dcc.Store(id="plot-metadata", data=get_metadata()),  # Store metadata for exports
         
         # App title
         dbc.Row([
             dbc.Col(html.H2("Remote OpenFAST Plotter", className="my-2"), width="auto"),
+            dbc.Col(html.Small(f"v{get_metadata()['version']}", className="text-muted pt-3"), width="auto")
         ], className="mb-2"),
         
         # File input section

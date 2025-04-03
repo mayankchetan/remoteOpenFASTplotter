@@ -8,6 +8,7 @@ Features:
 - Direct HTML export for sharing and reporting
 - Memory-efficient handling of large datasets
 - Spectral (FFT) analysis with advanced configuration options
+- Comprehensive HTML report generation with all plots and settings
 '''
 
 # Import Packages
