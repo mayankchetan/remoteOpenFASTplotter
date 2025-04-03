@@ -161,11 +161,19 @@ def perform_binning(freq, psd, bins_per_decade=10):
     else:
         f0 = None
     
+    # Safeguard against empty arrays
+    if len(freq) == 0:
+        return np.array([]), np.array([])
+    
     # Create logarithmic bins
     log_f_min = np.log10(np.min(freq))
     log_f_max = np.log10(np.max(freq))
     num_decades = log_f_max - log_f_min
     num_bins = int(np.ceil(num_decades * bins_per_decade))
+    
+    # Ensure at least one bin
+    if num_bins < 1:
+        num_bins = 1
     
     log_bins = np.linspace(log_f_min, log_f_max, num_bins + 1)
     bin_centers = 0.5 * (log_bins[1:] + log_bins[:-1])
@@ -188,6 +196,8 @@ def perform_binning(freq, psd, bins_per_decade=10):
     if f0 is not None:
         binned_freq = np.concatenate(([f0], binned_freq))
         binned_psd = np.concatenate(([p0], binned_psd))
+        # Also extend the bin_counts array to match
+        bin_counts = np.concatenate(([1], bin_counts))
     
     # Remove empty bins
     valid = bin_counts > 0
