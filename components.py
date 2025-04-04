@@ -455,7 +455,7 @@ def create_layout():
         # App title
         dbc.Row([
             dbc.Col(html.H2("Remote OpenFAST Plotter", className="my-2"), width="auto"),
-            dbc.Col(html.Small(f"v{get_metadata()['version']}", className="text-muted pt-3"), width="auto")
+            dbc.Col(html.Small(f"{get_metadata()['version']}", className="text-muted pt-3"), width="auto")
         ], className="mb-2"),
         
         # File input section
