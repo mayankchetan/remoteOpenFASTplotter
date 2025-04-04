@@ -140,3 +140,15 @@ def test_fft_annotation_interaction(dash_duo):
     # Optional: Test removing annotations
     # This is more complex as it requires clicking on dynamic elements
     # and would need special handling for the pattern-matching selectors
+
+def test_run_server_with_retry(monkeypatch):
+    """Test run_server_with_retry when all ports are occupied."""
+    from app import run_server_with_retry
+
+    def mock_run(*args, **kwargs):
+        raise OSError("Address already in use")
+
+    monkeypatch.setattr("dash.Dash.run", mock_run)
+
+    with pytest.raises(OSError, match="Could not find an available port after"):
+        run_server_with_retry(app, port=8050, max_retries=3)

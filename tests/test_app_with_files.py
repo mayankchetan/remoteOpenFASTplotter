@@ -93,3 +93,20 @@ def test_plot_real_files(dash_duo, test_files):
     # Verify the plot exists
     plot = dash_duo.find_element(".js-plotly-plot")
     assert plot is not None
+
+def test_invalid_file_inputs(dash_duo):
+    """Test handling of invalid file paths and unsupported formats."""
+    app = import_app("app")
+    dash_duo.start_server(app)
+
+    # Enter invalid file paths
+    file_input = dash_duo.find_element("#file-paths-input")
+    file_input.send_keys("/invalid/path/to/file.outb\nunsupported_file.txt")
+
+    # Click load button
+    load_button = dash_duo.find_element("#load-files-btn")
+    load_button.click()
+
+    # Check for error message
+    error_message = dash_duo.wait_for_element("#error-message")
+    assert "Invalid file path" in error_message.text or "Unsupported file format" in error_message.text

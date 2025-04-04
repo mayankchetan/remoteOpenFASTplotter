@@ -191,3 +191,23 @@ def test_perform_binning():
     empty_freq, empty_psd = perform_binning(np.array([]), np.array([]))
     assert len(empty_freq) == 0
     assert len(empty_psd) == 0
+
+def test_compute_fft_edge_cases():
+    """Test compute_fft with edge cases."""
+    from tools.fft_analysis import compute_fft
+    import pandas as pd
+
+    # Empty DataFrame
+    empty_df = pd.DataFrame()
+    with pytest.raises(ValueError, match="Input DataFrame is empty"):
+        compute_fft(empty_df, "Signal", time_col="Time")
+
+    # Single-row DataFrame
+    single_row_df = pd.DataFrame({"Time": [0], "Signal": [1]})
+    with pytest.raises(ValueError, match="Not enough valid data points for FFT analysis"):
+        compute_fft(single_row_df, "Signal", time_col="Time")
+
+    # Non-numeric columns
+    non_numeric_df = pd.DataFrame({"Time": ["a", "b", "c"], "Signal": ["x", "y", "z"]})
+    with pytest.raises(TypeError, match="Non-numeric data found in columns"):
+        compute_fft(non_numeric_df, "Signal", time_col="Time")

@@ -85,7 +85,7 @@ jobs:
     - name: Test with pytest
       run: |
         # Make sure the current directory is in PYTHONPATH to find modules
-        PYTHONPATH=$PYTHONPATH:$(pwd) pytest tests/test_utils.py tests/test_fft_analysis.py --cov=. --cov-report=xml
+        PYTHONPATH=$PYTHONPATH:$(pwd) pytest tests/test_utils.py tests/test_fft_analysis.py tests/test_html_export.py tests/test_signal_selection.py --cov=. --cov-report=xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3

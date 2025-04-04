@@ -210,51 +210,33 @@ def perform_binning(freq, psd, bins_per_decade=10):
     
     return binned_freq, binned_psd
 
-def compute_fft(df, signal, time_col="Time", start_time=None, end_time=None,
-               averaging="None", windowing="hamming", detrend=False,
-               n_exp=None, bins_per_decade=10):
-    """
-    Compute FFT of a signal in a DataFrame
-    
-    Parameters:
-    -----------
-    df : pandas.DataFrame
-        DataFrame containing the signal data
-    signal : str
-        Name of the signal column to analyze
-    time_col : str
-        Name of the time column
-    start_time, end_time : float, optional
-        Start and end times for analysis window
-    averaging : str
-        "None", "Welch", or "Binning"
-    windowing : str
-        "hamming", "hann", or "rectangular"
-    detrend : bool
-        Whether to remove linear trend from signal
-    n_exp : int or None
-        Exponent for 2^n points in FFT calculation
-    bins_per_decade : int
-        For binning averaging, number of bins per decade
-    
-    Returns:
-    --------
-    FFTResult object with frequency and amplitude data
-    """
+def compute_fft(data, signal_col, time_col="Time", averaging="None", start_time=None, end_time=None, n_exp=None, detrend=False, windowing='hamming', bins_per_decade=10):
+    """Compute FFT for a given signal."""
+    # Check if the DataFrame is empty
+    if data.empty:
+        raise ValueError("Input DataFrame is empty")
+
+    # Check if the required columns exist
+    missing_columns = [col for col in [time_col, signal_col] if col not in data.columns]
+    if missing_columns:
+        raise KeyError(f"Missing required columns: {', '.join(missing_columns)}")
+        
+    # Check if data is numeric
+    if not np.issubdtype(data[time_col].dtype, np.number) or not np.issubdtype(data[signal_col].dtype, np.number):
+        raise TypeError("Non-numeric data found in columns")
+
     # Filter by time range if specified
     if start_time is not None or end_time is not None:
-        mask = pd.Series(True, index=df.index)
+        mask = pd.Series(True, index=data.index)
         if start_time is not None:
-            mask = mask & (df[time_col] >= start_time)
+            mask = mask & (data[time_col] >= start_time)
         if end_time is not None:
-            mask = mask & (df[time_col] <= end_time)
-        data = df[mask]
-    else:
-        data = df
+            mask = mask & (data[time_col] <= end_time)
+        data = data[mask]
     
     # Extract time and signal data
     t = data[time_col].values
-    y = data[signal].values
+    y = data[signal_col].values
     
     # Remove NaN values if any
     valid = ~np.isnan(y) & ~np.isnan(t)
@@ -295,7 +277,7 @@ def compute_fft(df, signal, time_col="Time", start_time=None, end_time=None,
     
     # Add extra info
     result.info.update({
-        'signal': signal,
+        'signal': signal_col,
         'windowing': windowing,
         'detrend': detrend,
         'n_points': len(y),
