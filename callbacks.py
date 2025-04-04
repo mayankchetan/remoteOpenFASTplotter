@@ -795,16 +795,16 @@ def register_callbacks(app):
                 xaxis_title='Frequency (Hz)',
                 yaxis_title='Amplitude',
                 height=600,
-                margin=dict(l=50, r=20, t=60, b=50),
+                margin=dict(l=50, r=150, t=30, b=50),  # Reduced right margin
                 xaxis_type=xscale,
                 yaxis_type='log',
                 showlegend=True,
                 legend=dict(
-                    orientation="v", 
-                    yanchor="top", 
-                    y=0.98, 
-                    xanchor="right", 
-                    x=0.99
+                    orientation='v',  # Vertical orientation
+                    yanchor='middle',  # Centered vertically
+                    xanchor='left',  # Anchor to the left of the legend box
+                    x=1.05,  # Bring legend closer to the plot
+                    y=0.5   # Center legend vertically
                 )
             )
             
@@ -928,11 +928,17 @@ def register_callbacks(app):
                     xaxis_title='Frequency (Hz)',
                     yaxis_title='Amplitude',
                     height=500,
-                    margin=dict(l=50, r=20, t=60, b=50),
+                    margin=dict(l=50, r=150, t=30, b=50),  # Reduced right margin
                     xaxis_type=xscale,
                     yaxis_type='log',
                     showlegend=True,
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
+                    legend=dict(
+                        orientation='v',  # Vertical orientation
+                        yanchor='middle',  # Centered vertically
+                        xanchor='left',  # Anchor to the left of the legend box
+                        x=1.05,  # Bring legend closer to the plot
+                        y=0.5   # Center legend vertically
+                    )
                 )
                 
                 # Apply x-axis limit if specified

@@ -189,8 +189,8 @@ def draw_graph(file_path_list, df_list, signalx, signaly, plot_option):
     # Common layout updates
     fig.update_layout(
         height=200 * len(signaly),  # Increased from 150 to 200 for taller subplots
-        margin=dict(l=50, r=20, t=30, b=50),  # Reduce margins
-        legend=dict(orientation='h', yanchor='bottom', xanchor='center', x=0.5, y=1.02)
+        margin=dict(l=50, r=120, t=30, b=50),  # Increased right margin to accommodate legend
+        legend=dict(orientation='v', yanchor='middle', xanchor='left', x=1.02, y=0.5)  # Position legend outside on the right
     )
     fig.update_xaxes(title_text=signalx, row=len(signaly), col=1)
     
