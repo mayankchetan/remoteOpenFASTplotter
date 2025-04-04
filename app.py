@@ -26,6 +26,10 @@ from components import create_layout
 from callbacks import register_callbacks
 from data_manager import DATAFRAMES
 
+# Ensure assets directory exists
+assets_dir = os.path.join(os.path.dirname(__file__), 'assets')
+os.makedirs(assets_dir, exist_ok=True)
+
 # Initialize the Dash app with Bootstrap styling
 app = dash.Dash(
     __name__, 
@@ -33,7 +37,9 @@ app = dash.Dash(
         dbc.themes.BOOTSTRAP, 
         'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css'
     ],
-    suppress_callback_exceptions=True  # Allow dynamic components
+    suppress_callback_exceptions=True,  # Allow dynamic components
+    title="Remote OpenFAST Plotter",  # Set the webpage title
+    assets_folder=assets_dir,  # Tell Dash where to find static assets
 )
 
 # Add custom CSS for fade-out effect
@@ -43,7 +49,7 @@ app.index_string = '''
     <head>
         {%metas%}
         <title>{%title%}</title>
-        {%favicon%}
+        {%favicon%}  <!-- Dash automatically includes the favicon -->
         {%css%}
         <style>
             /* Custom CSS for the fade-out effect */
