@@ -748,7 +748,11 @@ def register_callbacks(app):
                                 color=base_color,
                                 dash=line_style if line_style != 'solid' else None
                             ),
-                            name=f"{signal} - {file_name}"
+                            name=f"{signal} - {file_name}",
+                            hovertemplate=f"<b>{file_name}</b><br>" +
+                                         f"<b>Signal:</b> {signal}<br>" +
+                                         f"<b>Frequency:</b> %{{x:.4g}} Hz<br>" +
+                                         f"<b>Amplitude:</b> %{{y:.4g}}<extra></extra>"
                         ))
                     except Exception as e:
                         print(f"Error in FFT calculation for {file_path}, signal {signal}: {e}")
@@ -781,7 +785,7 @@ def register_callbacks(app):
                         yref="paper",
                         text=f"{label}: {freq:.2f} Hz",  # Include frequency with 2 decimal places
                         showarrow=False,
-                        textangle=0,  # Horizontal text
+                        textangle=-90,  # Horizontal text
                         xanchor="right",
                         yanchor="middle",
                         font=dict(size=10),
@@ -878,7 +882,11 @@ def register_callbacks(app):
                             y=amp,
                             mode='lines',
                             line=dict(color=plotly.colors.DEFAULT_PLOTLY_COLORS[i % len(plotly.colors.DEFAULT_PLOTLY_COLORS)]),
-                            name=file_name
+                            name=file_name,
+                            hovertemplate=f"<b>{file_name}</b><br>" +
+                                         f"<b>Signal:</b> {signal}<br>" +
+                                         f"<b>Frequency:</b> %{{x:.4g}} Hz<br>" +
+                                         f"<b>Amplitude:</b> %{{y:.4g}}<extra></extra>"
                         ))
                     except Exception as e:
                         print(f"Error in FFT calculation for {file_path}, signal {signal}: {e}")

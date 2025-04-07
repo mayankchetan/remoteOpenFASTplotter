@@ -164,7 +164,10 @@ def draw_graph(file_path_list, df_list, signalx, signaly, plot_option):
                     y=df[label],
                     mode='lines',
                     line=dict(color=cols[idx % len(cols)]),
-                    name=identifier
+                    name=identifier,
+                    hovertemplate=f"<b>{identifier}</b><br>" +
+                                 f"<b>{signalx}:</b> %{{x:.4g}}<br>" +
+                                 f"<b>{label}:</b> %{{y:.4g}}<extra></extra>"
                 ),
                 row=row_idx + 1,
                 col=1)
@@ -176,11 +179,19 @@ def draw_graph(file_path_list, df_list, signalx, signaly, plot_option):
     # If we're plotting a single file or separate plots  
     else:
         for idx, df in enumerate(df_list):
+            file_path = file_path_list[idx] if idx < len(file_path_list) else "Unknown"
+            identifier = path_identifiers.get(file_path, f"File {idx+1}")
+            
             for row_idx, label in enumerate(signaly):
                 fig.append_trace(go.Scatter(
                     x=df[signalx],
                     y=df[label],
                     mode='lines',
+                    line=dict(color=cols[idx % len(cols)]),
+                    name=identifier if len(signaly) > 1 else label,
+                    hovertemplate=f"<b>{identifier}</b><br>" +
+                                 f"<b>{signalx}:</b> %{{x:.4g}}<br>" +
+                                 f"<b>{label}:</b> %{{y:.4g}}<extra></extra>",
                     showlegend=False),
                     row=row_idx + 1,
                     col=1)
@@ -190,7 +201,12 @@ def draw_graph(file_path_list, df_list, signalx, signaly, plot_option):
     fig.update_layout(
         height=200 * len(signaly),  # Increased from 150 to 200 for taller subplots
         margin=dict(l=50, r=120, t=30, b=50),  # Increased right margin to accommodate legend
-        legend=dict(orientation='v', yanchor='middle', xanchor='left', x=1.02, y=0.5)  # Position legend outside on the right
+        legend=dict(orientation='v', yanchor='middle', xanchor='left', x=1.02, y=0.5),  # Position legend outside on the right
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=12,
+            font_family="Arial"
+        )
     )
     fig.update_xaxes(title_text=signalx, row=len(signaly), col=1)
     
