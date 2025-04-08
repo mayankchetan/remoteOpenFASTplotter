@@ -11,6 +11,7 @@ import getpass
 import subprocess
 from pathlib import Path
 import os
+from user_preferences import get_saved_file_paths
 
 def get_metadata():
     """Gather metadata for plot exports"""
@@ -49,57 +50,134 @@ loading_spinner = dbc.Spinner(
 )
 
 # File input card for loading and displaying OpenFAST files
-file_input_card = dbc.Card([
-    dbc.CardHeader([
-        html.Span("Load OpenFAST Files", className="me-auto"),
-        html.Span([
-            dbc.Badge(id="loaded-files-count", color="primary", className="me-1"),
-            html.Span(" files loaded", className="small")
-        ])
-    ], className="d-flex justify-content-between align-items-center"),
-    dbc.CardBody([
-        dbc.Row([
-            dbc.Col(
-                dbc.Textarea(
-                    id="file-paths-input",
-                    placeholder="Paste file paths here, one per line...",
-                    style={"height": "100px"},
+def create_file_input_card():
+    """Create the file input card with saved paths functionality"""
+    # Get saved path sets for the dropdown
+    saved_paths = get_saved_file_paths()
+    saved_path_options = [{"label": name, "value": name} for name in saved_paths.keys()]
+    
+    return dbc.Card([
+        dbc.CardHeader([
+            html.Span("Load OpenFAST Files", className="me-auto"),
+            html.Span([
+                dbc.Badge(id="loaded-files-count", color="primary", className="me-1"),
+                html.Span(" files loaded", className="small")
+            ])
+        ], className="d-flex justify-content-between align-items-center"),
+        dbc.CardBody([
+            dbc.Row([
+                dbc.Col(
+                    dbc.Textarea(
+                        id="file-paths-input",
+                        placeholder="Paste file paths here, one per line...",
+                        style={"height": "100px"},
+                    ),
+                    width=9
                 ),
-                width=9
-            ),
-            dbc.Col([
-                dbc.Button("Load Files", id="load-files-btn", color="primary", className="w-100 mb-2"),
-                dbc.Button("Clear All", id="clear-files-btn", color="secondary", outline=True, className="w-100")
-            ], width=3)
-        ], className="mb-2"),
-        html.Div(id="file-loading-status", className="mt-2 small"),
-        html.Div([
+                dbc.Col([
+                    dbc.Button("Load Files", id="load-files-btn", color="primary", className="w-100 mb-2"),
+                    dbc.Button("Clear All", id="clear-files-btn", color="secondary", outline=True, className="w-100")
+                ], width=3)
+            ], className="mb-2"),
+            html.Div(id="file-loading-status", className="mt-2 small"),
+            html.Div([
+                html.Div([
+                    dbc.Button(
+                        "Show error details",
+                        id="error-details-button",
+                        size="sm",
+                        color="link",
+                        className="p-0 mt-1",
+                        style={"display": "none"}
+                    ),
+                ]),
+                dbc.Collapse(
+                    id="error-details-collapse",
+                    is_open=False,
+                    className="mt-2"
+                )
+            ], id="error-details-container", style={"display": "none"}),
+            html.Div(id="loaded-files-pills", className="mt-3"),
+            # Add file info link to file input card
+            html.Div([
+                html.A(id="file-info-link", children=[
+                    html.I(className="bi bi-info-circle me-1", style={"fontSize": "1.1rem"}),
+                    "File Info"
+                ], href="#", className="text-decoration-none")
+            ], className="d-flex justify-content-end mt-2"),
+            # Add new elements for saved paths
             html.Div([
                 dbc.Button(
-                    "Show error details",
-                    id="error-details-button",
-                    size="sm",
+                    "Saved File Path Sets ▾", 
+                    id="toggle-saved-paths-btn",
                     color="link",
-                    className="p-0 mt-1",
-                    style={"display": "none"}
+                    className="mt-3 ps-0 text-decoration-none"
                 ),
             ]),
             dbc.Collapse(
-                id="error-details-collapse",
-                is_open=False,
-                className="mt-2"
-            )
-        ], id="error-details-container", style={"display": "none"}),
-        html.Div(id="loaded-files-pills", className="mt-3"),
-        # Add file info link to file input card
-        html.Div([
-            html.A(id="file-info-link", children=[
-                html.I(className="bi bi-info-circle me-1", style={"fontSize": "1.1rem"}),
-                "File Info"
-            ], href="#", className="text-decoration-none")
-        ], className="d-flex justify-content-end mt-2")
+                html.Div([
+                    dbc.Row([
+                        dbc.Col([
+                            dcc.Dropdown(
+                                id="saved-paths-dropdown",
+                                options=saved_path_options,
+                                placeholder="Select saved paths...",
+                                className="mb-2"
+                            ),
+                        ], width=8),
+                        dbc.Col([
+                            dbc.Button("Load", id="load-saved-paths-btn", color="secondary", size="sm"),
+                        ], width=4),
+                    ]),
+                    dbc.Row([
+                        dbc.Col([
+                            dbc.Input(
+                                id="save-paths-name-input",
+                                placeholder="Enter name to save current paths",
+                                type="text",
+                                className="mb-2"
+                            ),
+                        ], width=8),
+                        dbc.Col([
+                            dbc.Button("Save", id="save-paths-btn", color="success", size="sm"),
+                        ], width=4),
+                    ]),
+                    dbc.Row([
+                        dbc.Col([
+                            dbc.Button("Delete", id="delete-saved-paths-btn", color="danger", size="sm"),
+                        ], width=6),
+                        dbc.Col([
+                            dbc.Button("Rename", id="rename-saved-paths-btn", color="warning", size="sm"),
+                        ], width=6),
+                    ]),
+                ], className="mb-3 pt-2"),
+                id="saved-paths-collapse",
+                is_open=False  # Hidden by default
+            ),
+            # Modal for rename operation
+            dbc.Modal([
+                dbc.ModalHeader("Rename Saved Path Set"),
+                dbc.ModalBody([
+                    dbc.Input(id="rename-path-set-input", placeholder="New name", type="text")
+                ]),
+                dbc.ModalFooter([
+                    dbc.Button("Cancel", id="rename-path-cancel", color="secondary"),
+                    dbc.Button("Rename", id="rename-path-confirm", color="primary"),
+                ]),
+            ], id="rename-path-modal"),
+            # Confirmation for delete
+            dbc.Modal([
+                dbc.ModalHeader("Confirm Deletion"),
+                dbc.ModalBody("Are you sure you want to delete this saved path set?"),
+                dbc.ModalFooter([
+                    dbc.Button("Cancel", id="delete-path-cancel", color="secondary"),
+                    dbc.Button("Delete", id="delete-path-confirm", color="danger"),
+                ]),
+            ], id="delete-path-modal"),
+            # Add status message container
+            html.Div(id="status-message", className="mt-2 small"),
+        ])
     ])
-])
 
 # Time range selection component
 time_range_card = dbc.Card([
@@ -460,7 +538,7 @@ def create_layout():
         
         # File input section
         dbc.Row([
-            dbc.Col(file_input_card, width=12)
+            dbc.Col(create_file_input_card(), width=12)
         ], className="mb-2"),
         
         # Global time range selection

@@ -165,6 +165,7 @@ def draw_graph(file_path_list, df_list, signalx, signaly, plot_option):
                     mode='lines',
                     line=dict(color=cols[idx % len(cols)]),
                     name=identifier,
+                    legendgroup=identifier,  # Add legendgroup to link traces across subplots
                     hovertemplate=f"<b>{identifier}</b><br>" +
                                  f"<b>{signalx}:</b> %{{x:.4g}}<br>" +
                                  f"<b>{label}:</b> %{{y:.4g}}<extra></extra>"
@@ -181,14 +182,16 @@ def draw_graph(file_path_list, df_list, signalx, signaly, plot_option):
         for idx, df in enumerate(df_list):
             file_path = file_path_list[idx] if idx < len(file_path_list) else "Unknown"
             identifier = path_identifiers.get(file_path, f"File {idx+1}")
+            file_color = cols[idx % len(cols)]
             
             for row_idx, label in enumerate(signaly):
                 fig.append_trace(go.Scatter(
                     x=df[signalx],
                     y=df[label],
                     mode='lines',
-                    line=dict(color=cols[idx % len(cols)]),
-                    name=identifier if len(signaly) > 1 else label,
+                    line=dict(color=file_color),
+                    name=identifier,
+                    legendgroup=identifier,  # Add legendgroup to link traces across subplots
                     hovertemplate=f"<b>{identifier}</b><br>" +
                                  f"<b>{signalx}:</b> %{{x:.4g}}<br>" +
                                  f"<b>{label}:</b> %{{y:.4g}}<extra></extra>",

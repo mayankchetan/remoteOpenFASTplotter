@@ -15,6 +15,7 @@ A Dash web application for reading and plotting OpenFAST output files on remote 
 - **FFT Analysis**: Frequency analysis with configurable parameters
 - **Frequency Annotations**: Mark and label important frequencies in FFT plots
 - **User-Friendly Interface**: Simple and intuitive UI with tooltips and visual feedback
+- **File Path Management**: Save and reuse sets of OpenFAST file paths for quick access
 
 ## Installation
 
@@ -46,6 +47,8 @@ A Dash web application for reading and plotting OpenFAST output files on remote 
    - Paste file paths in the textarea (one per line)
    - Click "Load Files" to process the data
    - View status messages and file indicators
+   - Save frequently used file paths by entering a name and clicking "Save"
+   - Load saved file path sets using the dropdown and "Load" button
 
 4. Configure plots:
    - Select signals for Y axes (multiple signals supported)
