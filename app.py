@@ -14,6 +14,7 @@ Features:
 # Import Packages
 import os
 import sys
+import time
 import argparse
 import dash
 import dash_bootstrap_components as dbc
@@ -78,40 +79,34 @@ app.index_string = '''
 # Set the app layout from our components module
 app.layout = create_layout()
 
-# Register all callbacks from our callbacks module
+# Register all callbacks from our modular callbacks package
 register_callbacks(app)
 
 def run_server_with_retry(app, host='localhost', port=8050, max_retries=5):
     """
-    Run the Dash server with automatic retry on port conflicts.
+    Run the Dash server with automatic retry on port conflict.
+    Will try incrementing the port number until it finds an available one.
     
     Parameters:
     -----------
     app : dash.Dash
-        The Dash application instance
+        The Dash app instance
     host : str
-        Host to bind the server to
+        The hostname to bind to
     port : int
-        Initial port to try
+        The port to bind to
     max_retries : int
-        Maximum number of port increments to try
-    
+        Maximum number of times to retry on a different port
     """
-    import socket
-    import time
-    
-    for attempt in range(max_retries):
+    for i in range(max_retries):
         try:
-            if attempt > 0:
-                print(f"Port {port-1} is in use. Trying port {port}...")
-            print(f"\nStarting Remote OpenFAST Plotter on http://{host}:{port}/")
-            print("Press Ctrl+C to abort the application.")
-            app.run(debug=True, host=host, port=port)
+            current_port = port + i
+            print(f"Starting server on {host}:{current_port}")
+            app.run(host=host, port=current_port, debug=True)
             break
         except OSError as e:
-            # Socket error - port likely in use
-            if "Address already in use" in str(e):
-                port += 1
+            if "Address already in use" in str(e) and i < max_retries - 1:
+                print(f"Port {current_port} is in use, trying {current_port + 1}...")
                 time.sleep(2)  # Wait before trying the next port
             else:
                 # Some other socket error, re-raise
