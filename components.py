@@ -76,6 +76,7 @@ def create_file_input_card():
                 ),
                 dbc.Col([
                     dbc.Button("Load Files", id="load-files-btn", color="primary", className="w-100 mb-2"),
+                    dbc.Button("Reload Files", id="reload-files-btn", color="info", className="w-100 mb-2"),
                     dbc.Button("Clear All", id="clear-files-btn", color="secondary", outline=True, className="w-100")
                 ], width=3)
             ], className="mb-2"),

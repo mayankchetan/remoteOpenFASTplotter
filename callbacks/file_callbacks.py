@@ -34,21 +34,23 @@ def register_file_callbacks(app):
         Output("is-loading", "data"),
         Output("time-range-info", "data"),
         Input("load-files-btn", "n_clicks"),
+        Input("reload-files-btn", "n_clicks"),
         Input("clear-files-btn", "n_clicks"),
         State("loaded-files", "data"),
         State("file-path-list", "data"),
         State("file-paths-input", "value"),
         prevent_initial_call=True
     )
-    def load_files_from_input(load_clicks, clear_clicks, current_loaded_files, current_file_paths, file_paths_input):
+    def load_files_from_input(load_clicks, reload_clicks, clear_clicks, current_loaded_files, current_file_paths, file_paths_input):
         """
         Load files from input text area, avoiding reload of already loaded files.
         
         This callback handles:
         1. Loading new files when the "Load Files" button is clicked
-        2. Clearing all loaded files when the "Clear All" button is clicked
-        3. Displaying status messages and error details
-        4. Creating file pills for visual representation of loaded files
+        2. Reloading existing files when the "Reload Files" button is clicked
+        3. Clearing all loaded files when the "Clear All" button is clicked
+        4. Displaying status messages and error details
+        5. Creating file pills for visual representation of loaded files
         """
         
         trigger_id = ctx.triggered_id
@@ -56,6 +58,127 @@ def register_file_callbacks(app):
         if trigger_id == "clear-files-btn":
             DATAFRAMES.clear()  # Clear the global dictionary
             return {}, [], html.Div("All files cleared"), "", html.Div(), "0", {"display": "none"}, {"display": "none"}, [], False, {}
+        
+        # Handle reload files button click
+        if trigger_id == "reload-files-btn":
+            if not current_file_paths:
+                return current_loaded_files, current_file_paths, html.Div("No files to reload", style={"color": "red"}), "", create_file_pills(current_file_paths), str(len(current_file_paths)), {"display": "none"}, {"display": "none"}, [], False, {}
+            
+            # Clear existing dataframes but keep the paths
+            for file_path in current_file_paths:
+                if file_path in DATAFRAMES:
+                    DATAFRAMES.pop(file_path)
+            
+            # Load all files again
+            valid_paths = []
+            invalid_paths = []
+            for path in current_file_paths:
+                if os.path.exists(path) and os.path.isfile(path):
+                    valid_paths.append(path)
+                else:
+                    invalid_paths.append(path)
+            
+            # Load valid files in parallel
+            if valid_paths:
+                new_dfs, failed_files, load_times = store_dataframes(valid_paths)
+                
+                # Log loading times
+                for file_path, elapsed in load_times.items():
+                    print(f"Reloaded {os.path.basename(file_path)} in {elapsed:.2} seconds")
+                
+                # Update the global DATAFRAMES dictionary with new DataFrames
+                for path, df in new_dfs.items():
+                    DATAFRAMES[path] = df
+                
+                # Get list of files that failed to load
+                failed_paths = [f[0] for f in failed_files]
+                
+                # Create status message
+                status_elements = []
+                
+                if new_dfs:
+                    status_elements.append(
+                        html.Span(f"✓ Reloaded {len(new_dfs)} files", style={"color": "green"})
+                    )
+                
+                if failed_paths:
+                    status_elements.append(
+                        html.Span(f" | ⚠️ {len(failed_paths)} files failed to reload", style={"color": "red", "marginLeft": "10px"})
+                    )
+                
+                if invalid_paths:
+                    status_elements.append(
+                        html.Span(f" | ⚠️ {len(invalid_paths)} files not found", style={"color": "red", "marginLeft": "10px"})
+                    )
+                
+                # Create error details content
+                error_details = []
+                has_errors = False
+                if failed_files:
+                    has_errors = True
+                    for path, error in failed_files:
+                        error_details.append(html.Div([
+                            html.Small(f"• {os.path.basename(path)}: {error}", className="text-danger")
+                        ]))
+                    
+                if invalid_paths:
+                    has_errors = True
+                    for path in invalid_paths:
+                        error_details.append(html.Div([
+                            html.Small(f"• {path}: File not found", className="text-danger")
+                        ]))
+                
+                # Create file pills for all valid loaded files
+                reloaded_files = list(new_dfs.keys())
+                pills = create_file_pills(reloaded_files)
+                
+                # Set visibility based on whether we have errors
+                error_container_style = {"display": "block"} if has_errors else {"display": "none"}
+                error_button_style = {"display": "block"} if has_errors else {"display": "none"}
+                
+                # Determine time range from loaded files
+                time_range_info = {}
+                if reloaded_files:
+                    for file_path in reloaded_files:
+                        if file_path in DATAFRAMES:
+                            df = DATAFRAMES[file_path]
+                            if 'Time' in df.columns or 'Time_[s]' in df.columns:
+                                time_col = 'Time_[s]' if 'Time_[s]' in df.columns else 'Time'
+                                min_time = df[time_col].min()
+                                max_time = df[time_col].max()
+                                if 'min_time' not in time_range_info or min_time < time_range_info['min_time']:
+                                    time_range_info['min_time'] = min_time
+                                if 'max_time' not in time_range_info or max_time > time_range_info['max_time']:
+                                    time_range_info['max_time'] = max_time
+                
+                return (
+                    {"files": reloaded_files},
+                    reloaded_files,
+                    html.Div(status_elements),
+                    "",
+                    pills,
+                    str(len(reloaded_files)),
+                    error_container_style,
+                    error_button_style,
+                    error_details,
+                    False,  # Loading done
+                    time_range_info
+                )
+            else:
+                # No valid files to reload
+                return (
+                    {"files": []},
+                    [],
+                    html.Div("No valid files found to reload", style={"color": "red"}),
+                    "",
+                    html.Div(),
+                    "0",
+                    {"display": "none"},
+                    {"display": "none"},
+                    [],
+                    False,
+                    {}
+                )
         
         if not file_paths_input:
             current_files = current_loaded_files.get("files", [])
