@@ -98,7 +98,8 @@ def create_file_input_card():
                     className="mt-2"
                 )
             ], id="error-details-container", style={"display": "none"}),
-            html.Div(id="loaded-files-pills", className="mt-3"),
+            # Hidden div for loaded-files-pills, will be replaced by the file order component
+            html.Div(id="loaded-files-pills", className="mt-3", style={"display": "none"}),
             # Add file info link to file input card
             html.Div([
                 html.A(id="file-info-link", children=[
@@ -179,6 +180,17 @@ def create_file_input_card():
             html.Div(id="status-message", className="mt-2 small"),
         ])
     ])
+
+# New component for file ordering
+file_order_card = dbc.Card([
+    dbc.CardHeader([
+        html.Span("File Order", className="me-auto"),
+        dbc.Button("Reset Order", id="reset-file-order-btn", color="link", size="sm")
+    ], className="d-flex justify-content-between align-items-center"),
+    dbc.CardBody([
+        html.Div(id="file-order-list", className="sortable-list")
+    ])
+])
 
 # Time range selection component
 time_range_card = dbc.Card([
@@ -530,6 +542,7 @@ def create_layout():
         dcc.Store(id="time-range-info", data={}),
         dcc.Store(id="fft-annotations", data=[]),
         dcc.Store(id="plot-metadata", data=get_metadata()),  # Store metadata for exports
+        dcc.Store(id="file-order", data=[]),  # New store for file ordering
         
         # App title
         dbc.Row([
@@ -542,14 +555,22 @@ def create_layout():
             dbc.Col(create_file_input_card(), width=12)
         ], className="mb-2"),
         
-        # Global time range selection
+        # Rearranged layout: Time Range and Signal Selection stacked, with File Order to the right
         dbc.Row([
-            dbc.Col(time_range_card, width=12)
-        ], className="mb-2"),
-        
-        # Global signal selection
-        dbc.Row([
-            dbc.Col(signal_selection_card, width=12)
+            # Stack Time Range and Signal Selection vertically
+            dbc.Col([
+                # Time Range Selection
+                dbc.Row([
+                    dbc.Col(time_range_card, width=12)
+                ], className="mb-2"),
+                # Signal Selection
+                dbc.Row([
+                    dbc.Col(signal_selection_card, width=12)
+                ])
+            ], width=6),
+            
+            # File Order component next to the stack
+            dbc.Col(file_order_card, width=6)
         ], className="mb-2"),
         
         # Main content with tabs

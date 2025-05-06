@@ -11,6 +11,7 @@ This package organizes callbacks into logical modules:
 - Export: Exporting plots as HTML
 - PathManagement: Saved file paths management
 - Preferences: User preferences management
+- FileOrder: File ordering functionality
 """
 
 from .ui_callbacks import register_ui_callbacks
@@ -22,6 +23,7 @@ from .annotation_callbacks import register_annotation_callbacks
 from .export_callbacks import register_export_callbacks
 from .path_management_callbacks import register_path_management_callbacks
 from .preference_callbacks import register_preference_callbacks
+from .file_order_callbacks import register_file_order_callbacks
 
 
 def register_callbacks(app):
@@ -43,3 +45,4 @@ def register_callbacks(app):
     register_export_callbacks(app)
     register_path_management_callbacks(app)
     register_preference_callbacks(app)
+    register_file_order_callbacks(app)  # Register file order callbacks

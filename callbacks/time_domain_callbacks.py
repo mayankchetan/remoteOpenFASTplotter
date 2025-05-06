@@ -26,6 +26,7 @@ def register_time_domain_callbacks(app):
         Input("plot-btn", "n_clicks"),
         Input("loaded-files", "data"),
         State("file-path-list", "data"),
+        State("file-order", "data"),  # Add the file order state
         State("signalx", "value"),
         State("signaly", "value"),
         State("plot-option", "value"),
@@ -34,7 +35,7 @@ def register_time_domain_callbacks(app):
         State("time-end", "value"),
         prevent_initial_call=True
     )
-    def update_plots(n_clicks, loaded_files, file_paths, signalx, signaly, plot_option, current_fig, start_time, end_time):
+    def update_plots(n_clicks, loaded_files, file_paths, file_order, signalx, signaly, plot_option, current_fig, start_time, end_time):
         """
         Update plots based on selected signals and plot options.
         
@@ -43,14 +44,26 @@ def register_time_domain_callbacks(app):
         2. Handles both overlay and separate plot modes
         3. Stores plot configuration for export
         4. Applies time range filtering
+        5. Respects custom file order defined by user
         """
         # Check if we have valid input data
         if not loaded_files or "files" not in loaded_files or not file_paths or not DATAFRAMES or not signalx or not signaly:
             return html.Div("Select signals to plot", className="text-center p-5 text-muted"), {}, None
         
+        # Use the custom file order if available, otherwise use the default order
+        ordered_paths = file_order if file_order else file_paths
+        
+        # Ensure we only include paths that exist in the loaded files
+        ordered_paths = [path for path in ordered_paths if path in file_paths]
+        
+        # Add any paths that might not be in the order list yet
+        for path in file_paths:
+            if path not in ordered_paths:
+                ordered_paths.append(path)
+        
         # Store the current plot configuration for export
         plot_config = {
-            "file_paths": file_paths,
+            "file_paths": ordered_paths,
             "signalx": signalx,
             "signaly": signaly,
             "plot_option": plot_option,
@@ -61,7 +74,7 @@ def register_time_domain_callbacks(app):
         # Apply time range filtering to DataFrames
         filtered_dfs = []
         valid_paths = []
-        for file_path in file_paths:
+        for file_path in ordered_paths:
             if file_path in DATAFRAMES:
                 df = DATAFRAMES[file_path].copy()
                 
@@ -98,10 +111,14 @@ def register_time_domain_callbacks(app):
                 figures.append(fig)
                 plot_id = f"plot-{uuid.uuid4()}"
                 path_identifiers = get_unique_identifiers(valid_paths)
-                # Create card header with tooltip
+                # Create card header with tooltip and order number badge
                 header_with_tooltip = html.Div(
                     [
-                        path_identifiers[file_path],
+                        html.Div([
+                            # Add order number badge
+                            dbc.Badge(f"{ordered_paths.index(file_path)+1}", color="primary", className="me-2"),
+                            path_identifiers[file_path],
+                        ]),
                         html.Span(
                             "ⓘ",
                             id={"type": "file-path-tooltip", "index": plot_id},
