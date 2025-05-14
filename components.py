@@ -479,6 +479,137 @@ fft_controls_card = dbc.Card([
     ])
 ])
 
+# Phase/Magnitude controls card
+phase_mag_controls_card = dbc.Card([
+    dbc.CardHeader("Phase/Magnitude Analysis Controls"),
+    dbc.CardBody([
+        dbc.Row([
+            dbc.Col([
+                html.Label("2^n Exponent"),
+                dbc.Input(
+                    id="phase-n-exp",
+                    type="number",
+                    min=1,
+                    max=20,
+                    step=1,
+                    value=15
+                ),
+            ], width=6),
+            
+            dbc.Col([
+                html.Label("Plot Style"),
+                dbc.RadioItems(
+                    id="phase-plot-style",
+                    options=[
+                        {"label": "Separate", "value": "separate"},
+                        {"label": "Overlay", "value": "overlay"}
+                    ],
+                    value="overlay",
+                    inline=True
+                ),
+            ], width=6),
+        ], className="mb-3"),
+        
+        dbc.Row([
+            dbc.Col([
+                html.Label("X-axis Scale"),
+                dbc.RadioItems(
+                    id="phase-xscale",
+                    options=[
+                        {"label": "Log", "value": "log"},
+                        {"label": "Linear", "value": "linear"}
+                    ],
+                    value="linear",
+                    inline=True
+                ),
+            ], width=6),
+            
+            dbc.Col([
+                html.Label("X-axis Limit (Hz)"),
+                dbc.Input(
+                    id="phase-x-limit",
+                    type="number",
+                    min=0.001,
+                    step="any",
+                    placeholder="Max frequency",
+                    value=5
+                ),
+            ], width=6),
+        ], className="mb-3"),
+        
+        dbc.Row([
+            dbc.Col([
+                dbc.Checklist(
+                    options=[{"label": "Detrend", "value": "detrend"}],
+                    value=["detrend"],
+                    id="phase-detrend",
+                    inline=True,
+                    className="mt-2 mb-3"
+                ),
+            ], width=12),
+        ]),
+        
+        # Peak detection parameters
+        dbc.Row([
+            dbc.Col([
+                html.Label("Peak Detection", className="mt-2"),
+                dbc.InputGroup([
+                    dbc.InputGroupText("Prominence"),
+                    dbc.Input(
+                        id="peak-prominence",
+                        type="number",
+                        min=0.00001,
+                        max=1,
+                        step=0.001,
+                        value=0.01
+                    ),
+                ], size="sm", className="mb-2"),
+            ], width=6),
+            
+            dbc.Col([
+                html.Label("\u00A0", className="mt-2"), # Non-breaking space for alignment
+                dbc.Button(
+                    "Find Peaks",
+                    id="find-peaks-btn",
+                    color="primary",
+                    outline=True,
+                    size="sm",
+                    className="w-100 mt-2"
+                ),
+            ], width=6),
+        ], className="mb-3"),
+        
+        dbc.Row([
+            dbc.Col([
+                dbc.Button("Calculate Phase/Magnitude", id="phase-calculate-btn", color="success", className="w-100"),
+            ], width=12),
+        ]),
+        
+        dbc.Row([
+            dbc.Col(
+                dbc.Button(
+                    [html.I(className="bi bi-download me-2"), "Export as HTML"],
+                    id="export-phase-btn",
+                    color="info",
+                    outline=True,
+                    className="mt-3 w-100",
+                ),
+                width="auto"
+            ),
+        ]),
+        # Add metadata info that will be included in exports
+        dbc.Row([
+            dbc.Col(
+                html.Small(
+                    "Exports include metadata: date/time, system, user, and version info",
+                    className="text-muted mt-2"
+                ),
+                width=12
+            )
+        ])
+    ])
+])
+
 # Tooltip for displaying file information
 file_info_tooltip = dbc.Tooltip(
     id="file-info-content",
@@ -525,6 +656,26 @@ def create_tabs():
                 label="FFT Analysis",
                 tab_id="tab-fft",
             ),
+            dbc.Tab(
+                [
+                    dbc.Row([
+                        dbc.Col(phase_mag_controls_card, width=12)
+                    ], className="mb-2"),
+                    dbc.Row([
+                        dbc.Col(
+                            html.Div(id="phase-plot-output"),
+                            width=12
+                        )
+                    ]),
+                    dbc.Row([
+                        dbc.Col([
+                            html.Div(id="peak-table-container", className="mt-3")
+                        ], width=12)
+                    ])
+                ],
+                label="Phase/Magnitude Analysis",
+                tab_id="tab-phase-mag",
+            ),
         ],
         id="tabs",
         active_tab="tab-time-domain",
@@ -539,10 +690,13 @@ def create_layout():
         dcc.Store(id="current-plot-data", data={}),
         dcc.Store(id="current-figure", data=None),
         dcc.Store(id="current-fft-figure", data=None),
+        dcc.Store(id="current-phase-figure", data=None),
+        dcc.Store(id="selected-peaks", data=[]),
         dcc.Store(id="time-range-info", data={}),
         dcc.Store(id="fft-annotations", data=[]),
         dcc.Store(id="plot-metadata", data=get_metadata()),  # Store metadata for exports
         dcc.Store(id="file-order", data=[]),  # New store for file ordering
+        dcc.Store(id="phase-raw-data", data={}),  # Store for phase/magnitude raw data
         
         # App title
         dbc.Row([
@@ -583,6 +737,7 @@ def create_layout():
         # Download components
         dcc.Download(id="download-html"),
         dcc.Download(id="download-fft-html"),
+        dcc.Download(id="download-phase-html"),
         
         # Loading state store
         dcc.Store(id="is-loading", data=False),
