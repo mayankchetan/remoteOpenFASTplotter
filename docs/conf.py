@@ -21,12 +21,14 @@ extensions = [
     'sphinx.ext.todo',
 ]
 
-templates_path = ['_templates']
+# Make sure template paths are absolute
+templates_path = [os.path.abspath(os.path.join(os.path.dirname(__file__), '_templates'))]
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # -- Options for HTML output -------------------------------------------------
 html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']
+# Make sure static paths are absolute
+html_static_path = [os.path.abspath(os.path.join(os.path.dirname(__file__), '_static'))]
 html_logo = '../assets/wind_turbine_plot.png'
 html_favicon = '../assets/favicon.ico'
 
@@ -45,6 +47,8 @@ html_css_files = [
 # Function to add custom CSS files when building on ReadTheDocs
 def setup(app):
     app.add_css_file('custom.css')
+    # Explicitly add the path to the template directory
+    app.add_html_theme_path(templates_path[0])
 
 html_context = {
     'display_github': True,
