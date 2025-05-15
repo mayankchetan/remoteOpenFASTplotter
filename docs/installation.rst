@@ -26,8 +26,8 @@ Using pip
 
    .. code-block:: bash
 
-      git clone https://github.com/NREL/remote-openfast-plotter.git
-      cd remote-openfast-plotter
+      git clone https://github.com/mayankchetan/remoteOpenFASTplotter.git
+      cd remoteOpenFASTplotter
 
 2. Install dependencies:
 
@@ -42,8 +42,8 @@ Using conda
 
    .. code-block:: bash
 
-      git clone https://github.com/NREL/remote-openfast-plotter.git
-      cd remote-openfast-plotter
+      git clone https://github.com/mayankchetan/remoteOpenFASTplotter.git
+      cd remoteOpenFASTplotter
 
 2. Create and activate a conda environment:
 

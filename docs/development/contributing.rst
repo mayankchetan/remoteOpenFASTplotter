@@ -15,9 +15,9 @@ Contribution Workflow
    
    .. code-block:: bash
 
-      git clone https://github.com/YOUR-USERNAME/remote-openfast-plotter.git
-      cd remote-openfast-plotter
-      git remote add upstream https://github.com/NREL/remote-openfast-plotter.git
+      git clone https://github.com/YOUR-USERNAME/remoteOpenFASTplotter.git
+      cd remoteOpenFASTplotter
+      git remote add upstream https://github.com/mayankchetan/remoteOpenFASTplotter.git
 
 3. **Create a Branch**:
    

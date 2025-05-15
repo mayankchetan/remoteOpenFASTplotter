@@ -30,6 +30,22 @@ html_static_path = ['_static']
 html_logo = '../assets/wind_turbine_plot.png'
 html_favicon = '../assets/favicon.ico'
 
+# Custom footer for all pages
+html_show_sphinx = False  # Hide default Sphinx footer
+html_show_copyright = True
+html_context = {
+    'display_github': True,
+    'github_user': 'mayankchetan',
+    'github_repo': 'remoteOpenFASTplotter',
+    'github_version': 'main/docs/',
+    'note_footer': 'Portions of this documentation were developed with assistance from GitHub Copilot, an AI tool powered by OpenAI technology.',
+}
+
+# Add CSS to display the footer note
+html_css_files = [
+    'custom.css',
+]
+
 # -- Options for autodoc extension -------------------------------------------
 autodoc_member_order = 'bysource'
 

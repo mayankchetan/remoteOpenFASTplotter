@@ -67,6 +67,11 @@ For testing with example data:
    # Download test OpenFAST files
    python utils/download_test_files.py
 
+Documentation Development
+------------------------
+
+Portions of this documentation were developed with the assistance of GitHub Copilot, a generative AI tool based on OpenAI's technology. This includes the file management documentation and other supplementary content. For more details on how AI was used in the development process, see the :ref:`AI-assisted development <ai_assisted_development>` section.
+
 Indices and tables
 -----------------
 

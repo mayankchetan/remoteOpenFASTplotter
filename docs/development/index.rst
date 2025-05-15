@@ -12,6 +12,7 @@ This section provides information for developers who want to contribute to the R
    contributing
    testing
    extending
+   ai_development
 
 Development Environment Setup
 ---------------------------
@@ -22,8 +23,8 @@ To set up a development environment for Remote OpenFAST Plotter:
 
    .. code-block:: bash
 
-      git clone https://github.com/NREL/remote-openfast-plotter.git
-      cd remote-openfast-plotter
+      git clone https://github.com/mayankchetan/remoteOpenFASTplotter.git
+      cd remoteOpenFASTplotter
 
 2. Create a conda environment (recommended):
 
