@@ -33,6 +33,19 @@ html_favicon = '../assets/favicon.ico'
 # Custom footer for all pages
 html_show_sphinx = False  # Hide default Sphinx footer
 html_show_copyright = True
+
+# Ensure our templates are used
+html_additional_pages = {}
+
+# Add CSS to display the footer note - Make this more explicit
+html_css_files = [
+    'custom.css',
+]
+
+# Function to add custom CSS files when building on ReadTheDocs
+def setup(app):
+    app.add_css_file('custom.css')
+
 html_context = {
     'display_github': True,
     'github_user': 'mayankchetan',
@@ -40,11 +53,6 @@ html_context = {
     'github_version': 'main/docs/',
     'note_footer': 'Portions of this documentation were developed with assistance from GitHub Copilot, an AI tool powered by OpenAI technology.',
 }
-
-# Add CSS to display the footer note
-html_css_files = [
-    'custom.css',
-]
 
 # -- Options for autodoc extension -------------------------------------------
 autodoc_member_order = 'bysource'
