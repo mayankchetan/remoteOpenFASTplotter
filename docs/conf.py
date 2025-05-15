@@ -47,8 +47,6 @@ html_css_files = [
 # Function to add custom CSS files when building on ReadTheDocs
 def setup(app):
     app.add_css_file('custom.css')
-    # Explicitly add the path to the template directory
-    app.add_html_theme_path(templates_path[0])
 
 html_context = {
     'display_github': True,
