@@ -12,6 +12,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.colors
 import dash_bootstrap_components as dbc
+from plotly.subplots import make_subplots
 
 from dash import Input, Output, State, html, dcc, MATCH, ALL, ctx, no_update
 from dash.exceptions import PreventUpdate
@@ -84,10 +85,14 @@ def register_phase_callbacks(app):
         
         # OVERLAY PLOT STYLE - All signals in a single figure pair
         if (plot_style == "overlay"):
-            # Create figure for magnitude
-            mag_fig = go.Figure()
-            # Create figure for phase
-            phase_fig = go.Figure()
+            # Create a subplot figure with two rows (magnitude and phase)
+            fig = make_subplots(
+                rows=2, 
+                cols=1, 
+                shared_xaxes=True,
+                vertical_spacing=0.1,
+                subplot_titles=("Magnitude Analysis - All Signals", "Phase Analysis - All Signals")
+            )
             
             # Process each signal for each file
             for signal_idx, signal in enumerate(signals):
@@ -139,115 +144,103 @@ def register_phase_callbacks(app):
                         line_styles = ['solid', 'dash', 'dot', 'dashdot']
                         line_style = line_styles[file_idx % len(line_styles)]
                         
-                        # Add magnitude trace to figure
-                        mag_fig.add_trace(go.Scatter(
-                            x=freq,
-                            y=mag,
-                            mode='lines',
-                            line=dict(
-                                color=base_color,
-                                dash=line_style if line_style != 'solid' else None
+                        # Add magnitude trace to figure (top subplot)
+                        fig.add_trace(
+                            go.Scatter(
+                                x=freq,
+                                y=mag,
+                                mode='lines',
+                                line=dict(
+                                    color=base_color,
+                                    dash=line_style if line_style != 'solid' else None
+                                ),
+                                name=trace_name,
+                                legendgroup=trace_name,
+                                hovertemplate=f"<b>{file_name}</b><br>" +
+                                            f"<b>Signal:</b> {signal}<br>" +
+                                            f"<b>Frequency:</b> %{{x:.4g}} Hz<br>" +
+                                            f"<b>Magnitude:</b> %{{y:.4g}}<extra></extra>"
                             ),
-                            name=trace_name,
-                            hovertemplate=f"<b>{file_name}</b><br>" +
-                                         f"<b>Signal:</b> {signal}<br>" +
-                                         f"<b>Frequency:</b> %{{x:.4g}} Hz<br>" +
-                                         f"<b>Magnitude:</b> %{{y:.4g}}<extra></extra>"
-                        ))
+                            row=1, col=1
+                        )
                         
-                        # Add phase trace to figure
-                        phase_fig.add_trace(go.Scatter(
-                            x=freq,
-                            y=phase,
-                            mode='lines',
-                            line=dict(
-                                color=base_color,
-                                dash=line_style if line_style != 'solid' else None
+                        # Add phase trace to figure (bottom subplot)
+                        fig.add_trace(
+                            go.Scatter(
+                                x=freq,
+                                y=phase,
+                                mode='lines',
+                                line=dict(
+                                    color=base_color,
+                                    dash=line_style if line_style != 'solid' else None
+                                ),
+                                name=trace_name,
+                                legendgroup=trace_name,
+                                showlegend=False,  # Don't show duplicate legend entries
+                                hovertemplate=f"<b>{file_name}</b><br>" +
+                                            f"<b>Signal:</b> {signal}<br>" +
+                                            f"<b>Frequency:</b> %{{x:.4g}} Hz<br>" +
+                                            f"<b>Phase:</b> %{{y:.4g}} rad<extra></extra>"
                             ),
-                            name=trace_name,
-                            hovertemplate=f"<b>{file_name}</b><br>" +
-                                         f"<b>Signal:</b> {signal}<br>" +
-                                         f"<b>Frequency:</b> %{{x:.4g}} Hz<br>" +
-                                         f"<b>Phase:</b> %{{y:.4g}} rad<extra></extra>"
-                        ))
+                            row=2, col=1
+                        )
                     except Exception as e:
                         print(f"Error in Phase/Magnitude calculation for {file_path}, signal {signal}: {e}")
                         print(traceback.format_exc())
                         continue
             
-            # Update magnitude layout
-            mag_fig.update_layout(
-                title='Magnitude Analysis - All Signals',
-                xaxis_title='Frequency (Hz)',
-                yaxis_title='Magnitude',
-                height=400,
-                margin=dict(l=50, r=150, t=50, b=50),
-                xaxis_type=xscale,
-                yaxis_type='log',
-                showlegend=True,
-                legend=dict(
-                    orientation='v',
-                    yanchor='middle',
-                    xanchor='left',
-                    x=1.05,
-                    y=0.5
-                )
-            )
+            # Update layout for magnitude subplot (top)
+            fig.update_yaxes(title_text="Magnitude", type="log", row=1, col=1)
             
-            # Update phase layout
-            phase_fig.update_layout(
-                title='Phase Analysis - All Signals',
-                xaxis_title='Frequency (Hz)',
-                yaxis_title='Phase (rad)',
-                height=400,
-                margin=dict(l=50, r=150, t=50, b=50),
-                xaxis_type=xscale,
-                showlegend=True,
-                legend=dict(
-                    orientation='v',
-                    yanchor='middle',
-                    xanchor='left',
-                    x=1.05,
-                    y=0.5
-                )
-            )
+            # Update layout for phase subplot (bottom)
+            fig.update_yaxes(title_text="Phase (rad)", row=2, col=1)
+            
+            # Update shared x-axis
+            fig.update_xaxes(title_text="Frequency (Hz)", type=xscale, row=2, col=1)
             
             # Apply x-axis limit if specified
             if x_limit and xscale == 'log':
-                mag_fig.update_xaxes(range=[np.log10(0.001), np.log10(x_limit)])
-                phase_fig.update_xaxes(range=[np.log10(0.001), np.log10(x_limit)])
+                fig.update_xaxes(range=[np.log10(0.001), np.log10(x_limit)])
             elif x_limit:
-                mag_fig.update_xaxes(range=[0, x_limit])
-                phase_fig.update_xaxes(range=[0, x_limit])
+                fig.update_xaxes(range=[0, x_limit])
             
-            # Add click event for peak selection
-            mag_fig.update_layout(clickmode='event')
-            phase_fig.update_layout(clickmode='event')
+            # Update overall layout
+            fig.update_layout(
+                height=800,  # Taller to accommodate both plots
+                margin=dict(l=50, r=150, t=50, b=50),
+                showlegend=True,
+                legend=dict(
+                    orientation='v',
+                    yanchor='middle',
+                    xanchor='left',
+                    x=1.02,
+                    y=0.5
+                ),
+                clickmode='event'  # Enable click events for peak selection
+            )
             
-            # Store both figures
-            figures = [mag_fig, phase_fig]
+            # Store subplot data structure for click handling
+            subplot_data = {
+                'magnitude_subplot': {'row': 1, 'col': 1},
+                'phase_subplot': {'row': 2, 'col': 1}
+            }
             
-            # Create layout with plots
+            # Store the figure for later use
+            figures = [fig, subplot_data]
+            
+            # Create layout with the combined plot
             layout = html.Div([
                 dbc.Row([
                     dbc.Col([
                         dbc.Card([
-                            dbc.CardHeader("Magnitude Spectrum"),
-                            dbc.CardBody(dcc.Graph(figure=mag_fig, id="magnitude-graph", config={'displayModeBar': True}))
-                        ])
-                    ], width=12, className="mb-4")
-                ]),
-                dbc.Row([
-                    dbc.Col([
-                        dbc.Card([
-                            dbc.CardHeader("Phase Spectrum"),
-                            dbc.CardBody(dcc.Graph(figure=phase_fig, id="phase-graph", config={'displayModeBar': True}))
+                            dbc.CardHeader("Phase/Magnitude Analysis"),
+                            dbc.CardBody(dcc.Graph(figure=fig, id="combined-phase-mag-graph", config={'displayModeBar': True}))
                         ])
                     ], width=12)
                 ])
             ])
             
-            # Create empty peak table
+            # Create empty peak table or preserve existing
             if not existing_peaks or len(existing_peaks) == 0:
                 peak_table = html.Div([
                     dbc.Alert("Click on peaks in either the magnitude or phase plot to select them. Selected peaks will appear here.", color="info"),
@@ -271,9 +264,14 @@ def register_phase_callbacks(app):
         # SEPARATE PLOT STYLE - One plot pair per signal
         else:
             for signal in signals:
-                # Create figures for this signal
-                mag_fig = go.Figure()
-                phase_fig = go.Figure()
+                # Create a subplot figure with two rows (magnitude and phase)
+                fig = make_subplots(
+                    rows=2, 
+                    cols=1, 
+                    shared_xaxes=True,
+                    vertical_spacing=0.1,
+                    subplot_titles=(f"Magnitude Analysis: {signal}", f"Phase Analysis: {signal}")
+                )
                 
                 file_results = []
                 
@@ -327,31 +325,40 @@ def register_phase_callbacks(app):
                             "phase": phase.tolist()
                         }
                         
-                        # Add magnitude trace to figure
-                        mag_fig.add_trace(go.Scatter(
-                            x=freq,
-                            y=mag,
-                            mode='lines',
-                            line=dict(color=plotly.colors.DEFAULT_PLOTLY_COLORS[i % len(plotly.colors.DEFAULT_PLOTLY_COLORS)]),
-                            name=trace_name,
-                            hovertemplate=f"<b>{file_name}</b><br>" +
-                                         f"<b>Signal:</b> {signal}<br>" +
-                                         f"<b>Frequency:</b> %{{x:.4g}} Hz<br>" +
-                                         f"<b>Magnitude:</b> %{{y:.4g}}<extra></extra>"
-                        ))
+                        # Add magnitude trace to figure (top subplot)
+                        fig.add_trace(
+                            go.Scatter(
+                                x=freq,
+                                y=mag,
+                                mode='lines',
+                                line=dict(color=plotly.colors.DEFAULT_PLOTLY_COLORS[i % len(plotly.colors.DEFAULT_PLOTLY_COLORS)]),
+                                name=trace_name,
+                                legendgroup=trace_name,
+                                hovertemplate=f"<b>{file_name}</b><br>" +
+                                            f"<b>Signal:</b> {signal}<br>" +
+                                            f"<b>Frequency:</b> %{{x:.4g}} Hz<br>" +
+                                            f"<b>Magnitude:</b> %{{y:.4g}}<extra></extra>"
+                            ),
+                            row=1, col=1
+                        )
                         
-                        # Add phase trace to figure
-                        phase_fig.add_trace(go.Scatter(
-                            x=freq,
-                            y=phase,
-                            mode='lines',
-                            line=dict(color=plotly.colors.DEFAULT_PLOTLY_COLORS[i % len(plotly.colors.DEFAULT_PLOTLY_COLORS)]),
-                            name=trace_name,
-                            hovertemplate=f"<b>{file_name}</b><br>" +
-                                         f"<b>Signal:</b> {signal}<br>" +
-                                         f"<b>Frequency:</b> %{{x:.4g}} Hz<br>" +
-                                         f"<b>Phase:</b> %{{y:.4g}} rad<extra></extra>"
-                        ))
+                        # Add phase trace to figure (bottom subplot)
+                        fig.add_trace(
+                            go.Scatter(
+                                x=freq,
+                                y=phase,
+                                mode='lines',
+                                line=dict(color=plotly.colors.DEFAULT_PLOTLY_COLORS[i % len(plotly.colors.DEFAULT_PLOTLY_COLORS)]),
+                                name=trace_name,
+                                legendgroup=trace_name,
+                                showlegend=False,  # Don't show duplicate legend entries
+                                hovertemplate=f"<b>{file_name}</b><br>" +
+                                            f"<b>Signal:</b> {signal}<br>" +
+                                            f"<b>Frequency:</b> %{{x:.4g}} Hz<br>" +
+                                            f"<b>Phase:</b> %{{y:.4g}} rad<extra></extra>"
+                            ),
+                            row=2, col=1
+                        )
                     except Exception as e:
                         print(f"Error in Phase/Magnitude calculation for {file_path}, signal {signal}: {e}")
                         print(traceback.format_exc())
@@ -360,80 +367,57 @@ def register_phase_callbacks(app):
                 if not file_results:
                     continue
                 
-                # Update magnitude layout
-                mag_fig.update_layout(
-                    title=f'Magnitude Analysis: {signal}',
-                    xaxis_title='Frequency (Hz)',
-                    yaxis_title='Magnitude',
-                    height=400,
-                    margin=dict(l=50, r=150, t=50, b=50),
-                    xaxis_type=xscale,
-                    yaxis_type='log',
-                    showlegend=True,
-                    legend=dict(
-                        orientation='v',
-                        yanchor='middle',
-                        xanchor='left',
-                        x=1.05,
-                        y=0.5
-                    )
-                )
+                # Update layout for magnitude subplot (top)
+                fig.update_yaxes(title_text="Magnitude", type="log", row=1, col=1)
                 
-                # Update phase layout
-                phase_fig.update_layout(
-                    title=f'Phase Analysis: {signal}',
-                    xaxis_title='Frequency (Hz)',
-                    yaxis_title='Phase (rad)',
-                    height=400,
-                    margin=dict(l=50, r=150, t=50, b=50),
-                    xaxis_type=xscale,
-                    showlegend=True,
-                    legend=dict(
-                        orientation='v',
-                        yanchor='middle',
-                        xanchor='left',
-                        x=1.05,
-                        y=0.5
-                    )
-                )
+                # Update layout for phase subplot (bottom)
+                fig.update_yaxes(title_text="Phase (rad)", row=2, col=1)
+                
+                # Update shared x-axis
+                fig.update_xaxes(title_text="Frequency (Hz)", type=xscale, row=2, col=1)
                 
                 # Apply x-axis limit if specified
                 if x_limit and xscale == 'log':
-                    mag_fig.update_xaxes(range=[np.log10(0.001), np.log10(x_limit)])
-                    phase_fig.update_xaxes(range=[np.log10(0.001), np.log10(x_limit)])
+                    fig.update_xaxes(range=[np.log10(0.001), np.log10(x_limit)], row=1, col=1)
+                    fig.update_xaxes(range=[np.log10(0.001), np.log10(x_limit)], row=2, col=1)
                 elif x_limit:
-                    mag_fig.update_xaxes(range=[0, x_limit])
-                    phase_fig.update_xaxes(range=[0, x_limit])
+                    fig.update_xaxes(range=[0, x_limit], row=1, col=1)
+                    fig.update_xaxes(range=[0, x_limit], row=2, col=1)
                 
-                # Add click event for peak selection
-                mag_fig.update_layout(clickmode='event')
-                phase_fig.update_layout(clickmode='event')
+                # Update overall layout
+                fig.update_layout(
+                    height=800,  # Taller to accommodate both plots
+                    margin=dict(l=50, r=150, t=60, b=50),
+                    showlegend=True,
+                    legend=dict(
+                        orientation='v',
+                        yanchor='middle',
+                        xanchor='left',
+                        x=1.02,
+                        y=0.5
+                    ),
+                    clickmode='event'  # Enable click events for peak selection
+                )
+                
+                # Store subplot data for click handling
+                subplot_data = {
+                    'magnitude_subplot': {'row': 1, 'col': 1},
+                    'phase_subplot': {'row': 2, 'col': 1}
+                }
                 
                 # Store figures
-                figures.append([mag_fig, phase_fig])
+                figures.append([fig, subplot_data])
                 
-                # Add the graphs to the panel
+                # Add the graph to the panel
                 panels.append(
                     html.Div([
                         dbc.Row([
                             dbc.Col([
                                 dbc.Card([
-                                    dbc.CardHeader(f"Magnitude Analysis: {signal}"),
+                                    dbc.CardHeader(f"Phase/Magnitude Analysis: {signal}"),
                                     dbc.CardBody(dcc.Graph(
-                                        figure=mag_fig, 
-                                        id={"type": "magnitude-graph", "signal": signal},
-                                        config={'displayModeBar': True}
-                                    ))
-                                ])
-                            ], width=12, className="mb-4")
-                        ]),
-                        dbc.Row([
-                            dbc.Col([
-                                dbc.Card([
-                                    dbc.CardHeader(f"Phase Analysis: {signal}"),
-                                    dbc.CardBody(dcc.Graph(
-                                        figure=phase_fig, 
-                                        id={"type": "phase-graph", "signal": signal},
+                                        figure=fig, 
+                                        id={"type": "combined-graph", "signal": signal},
                                         config={'displayModeBar': True}
                                     ))
                                 ])
@@ -481,14 +465,22 @@ def register_phase_callbacks(app):
             raise PreventUpdate
         
         try:
-            # Get the magnitude data from the first figure
-            mag_fig = figures[0]
+            # With our new subplot structure, figures[0] is the combined figure
+            # and figures[1] contains subplot information
+            fig = figures[0]
+            
+            # We need to extract traces from the magnitude subplot (row 1, col 1)
+            magnitude_traces = []
+            for trace in fig['data']:
+                # Check if this trace belongs to the magnitude subplot (row 1, col 1)
+                if trace.get('xaxis', 'x') == 'x' and trace.get('yaxis', 'y') == 'y':
+                    magnitude_traces.append(trace)
             
             # We need to find the trace with the highest peak for detection
             max_peak_height = 0
             best_trace = None
             
-            for trace in mag_fig['data']:
+            for trace in magnitude_traces:
                 # Handle different possible data formats safely
                 x_array = []
                 y_array = []
@@ -530,13 +522,19 @@ def register_phase_callbacks(app):
             # Find peaks in the best trace
             peaks = find_peaks(best_trace['x'], best_trace['y'], prominence=prominence)
             
-            # Get phase values for these peaks from the phase plot
-            phase_fig = figures[1]
+            # Find corresponding phase values from the phase subplot (row 2, col 1)
+            # Phase traces start at index len(magnitude_traces)
+            phase_traces = []
+            for trace in fig['data']:
+                # Check if this trace belongs to the phase subplot (row 2, col 1)
+                if trace.get('xaxis', 'x') == 'x2' and trace.get('yaxis', 'y') == 'y2':
+                    phase_traces.append(trace)
+                    
+            # Find the matching phase trace with the same legendgroup/name
             phase_trace = None
-            
-            # Find the matching phase trace
-            for trace in phase_fig['data']:
-                if trace['name'] == best_trace['name']:
+            for trace in phase_traces:
+                # Match based on legendgroup (which we set to be the same as name)
+                if trace.get('legendgroup') == best_trace['name'] or trace.get('name') == best_trace['name']:
                     # Handle different possible data formats safely
                     x_array = []
                     y_array = []
@@ -594,17 +592,14 @@ def register_phase_callbacks(app):
     # Peak selection callback from plot click
     @app.callback(
         Output("selected-peaks", "data", allow_duplicate=True),
-        Input("magnitude-graph", "clickData"),
-        Input("phase-graph", "clickData"),
-        Input({"type": "magnitude-graph", "signal": ALL}, "clickData"),
-        Input({"type": "phase-graph", "signal": ALL}, "clickData"),
-        State("phase-raw-data", "data"),  # Added raw data state
+        Input("combined-phase-mag-graph", "clickData"),
+        Input({"type": "combined-graph", "signal": ALL}, "clickData"),
+        State("phase-raw-data", "data"),
         State("current-phase-figure", "data"),
         State("selected-peaks", "data"),
         prevent_initial_call=True
     )
-    def select_peak_from_click(main_mag_click, main_phase_click, separate_mag_clicks, separate_phase_clicks, 
-                               raw_data, figures, existing_peaks):
+    def select_peak_from_click(main_combined_click, separate_combined_clicks, raw_data, figures, existing_peaks):
         """
         Add a peak to the selected peaks when a user clicks on either magnitude or phase plot
         
@@ -622,25 +617,23 @@ def register_phase_callbacks(app):
         # Determine which graph was clicked
         trigger_id = ctx.triggered_id
         
-        if trigger_id == "magnitude-graph" and main_mag_click:
-            click_data = main_mag_click
-        elif trigger_id == "phase-graph" and main_phase_click:
-            click_data = main_phase_click
-            is_phase_plot = True
-        elif any(separate_mag_clicks):
-            # Find which magnitude graph was clicked
-            for i, click in enumerate(separate_mag_clicks):
-                if click is not None:
-                    click_data = click
-                    signal_name = ctx.triggered_id.get('signal', '')
-                    break
-        elif any(separate_phase_clicks):
-            # Find which phase graph was clicked
-            for i, click in enumerate(separate_phase_clicks):
-                if click is not None:
-                    click_data = click
-                    signal_name = ctx.triggered_id.get('signal', '')
+        if trigger_id == "combined-phase-mag-graph" and main_combined_click:
+            click_data = main_combined_click
+            # Determine if the click was in the phase subplot by checking curveNumber and y-axis
+            # Points in phase subplot have yaxis = 'y2'
+            if 'points' in main_combined_click and len(main_combined_click['points']) > 0:
+                if main_combined_click['points'][0].get('yaxis') == 'y2':
                     is_phase_plot = True
+        elif any(separate_combined_clicks):
+            # Find which combined graph was clicked
+            for i, click in enumerate(separate_combined_clicks):
+                if click is not None:
+                    click_data = click
+                    signal_name = ctx.triggered_id.get('signal', '')
+                    # Determine if the click was in the phase subplot by checking yaxis
+                    if 'points' in click and len(click['points']) > 0:
+                        if click['points'][0].get('yaxis') == 'y2':
+                            is_phase_plot = True
                     break
         
         if not click_data:
@@ -657,30 +650,66 @@ def register_phase_callbacks(app):
             # Get the trace name of the clicked curve
             clicked_trace_name = None
             
-            # In overlay mode, figures[0] is magnitude figure, figures[1] is phase figure
-            if isinstance(figures[0], dict):
-                # Overlay mode
-                clicked_fig = figures[1] if is_phase_plot else figures[0]
-                if curve_number < len(clicked_fig['data']):
-                    clicked_trace_name = clicked_fig['data'][curve_number].get('name', '')
-            else:
-                # Separate mode
-                fig_pair_idx = 0  # Default to first pair
+            # With the new subplot structure, we need to determine which trace was clicked differently
+            if isinstance(figures[0], dict):  # For combined plot (overlay mode)
+                fig = figures[0]
+                # The order in data is: [mag traces...], [phase traces...]
+                # For phase subplot, need to adjust curve number to account for magnitude traces
+                if is_phase_plot:
+                    # Count magnitude traces (those with yaxis='y')
+                    mag_trace_count = sum(1 for trace in fig['data'] if trace.get('yaxis', 'y') == 'y')
+                    # Ensure curve_number is within bounds
+                    if curve_number >= 0 and curve_number < len(fig['data']) - mag_trace_count:
+                        # The phase trace index = magnitude trace count + curve_number
+                        phase_trace_idx = mag_trace_count + curve_number
+                        clicked_trace_name = fig['data'][phase_trace_idx].get('name', '')
+                        # Use legendgroup if available (consistent naming)
+                        if not clicked_trace_name:
+                            clicked_trace_name = fig['data'][phase_trace_idx].get('legendgroup', '')
+                else:
+                    # For magnitude subplot, just use the curve number directly
+                    if curve_number >= 0 and curve_number < len(fig['data']):
+                        clicked_trace_name = fig['data'][curve_number].get('name', '')
+                        # Use legendgroup if available
+                        if not clicked_trace_name:
+                            clicked_trace_name = fig['data'][curve_number].get('legendgroup', '')
+            else:  # For separate plots (one per signal)
+                # Find which figure was clicked based on signal name
+                fig_idx = 0
                 if signal_name:
-                    # Try to find matching signal
                     for i, fig_pair in enumerate(figures):
-                        if len(fig_pair) >= 2:
-                            if fig_pair[0].get('layout', {}).get('title', {}).get('text', '').endswith(signal_name):
-                                fig_pair_idx = i
-                                break
+                        if isinstance(fig_pair[0], dict):
+                            subplot_titles = fig_pair[0].get('layout', {}).get('annotations', [])
+                            for title in subplot_titles:
+                                if title.get('text', '').endswith(signal_name):
+                                    fig_idx = i
+                                    break
                 
-                if fig_pair_idx < len(figures) and len(figures[fig_pair_idx]) >= 2:
-                    clicked_fig = figures[fig_pair_idx][1] if is_phase_plot else figures[fig_pair_idx][0]
-                    if 'data' in clicked_fig and curve_number < len(clicked_fig['data']):
-                        clicked_trace_name = clicked_fig['data'][curve_number].get('name', '')
-                        # For separate mode, need to add signal name to trace name for lookup
-                        if signal_name and not clicked_trace_name.startswith(signal_name):
-                            clicked_trace_name = f"{signal_name} - {clicked_trace_name}"
+                if fig_idx < len(figures) and len(figures[fig_idx]) > 0:
+                    fig = figures[fig_idx][0]  # The actual figure object
+                    
+                    # The order in data is: [mag traces...], [phase traces...]
+                    if is_phase_plot:
+                        # Count magnitude traces (those with yaxis='y')
+                        mag_trace_count = sum(1 for trace in fig['data'] if trace.get('yaxis', 'y') == 'y')
+                        # The phase trace index = magnitude trace count + curve_number
+                        if curve_number >= 0 and curve_number < len(fig['data']) - mag_trace_count:
+                            phase_trace_idx = mag_trace_count + curve_number
+                            clicked_trace_name = fig['data'][phase_trace_idx].get('name', '')
+                            # Use legendgroup if available
+                            if not clicked_trace_name:
+                                clicked_trace_name = fig['data'][phase_trace_idx].get('legendgroup', '')
+                    else:
+                        # For magnitude subplot
+                        if curve_number >= 0 and curve_number < len(fig['data']):
+                            clicked_trace_name = fig['data'][curve_number].get('name', '')
+                            # Use legendgroup if available
+                            if not clicked_trace_name:
+                                clicked_trace_name = fig['data'][curve_number].get('legendgroup', '')
+                    
+                    # For separate mode, need to add signal name to trace name for lookup
+                    if signal_name and clicked_trace_name and not clicked_trace_name.startswith(signal_name):
+                        clicked_trace_name = f"{signal_name} - {clicked_trace_name}"
             
             if not clicked_trace_name:
                 print("Could not determine trace name from click data")
@@ -1000,22 +1029,22 @@ def register_phase_callbacks(app):
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"phase_magnitude_analysis_{timestamp}.html"
         
-        # Check if figures are separate or combined
-        if isinstance(figures, list) and len(figures) == 2 and isinstance(figures[0], dict):
-            # Single plot pair (mag+phase combined view)
+        # With our new structure, figures[0] is the figure and figures[1] is subplot info
+        if isinstance(figures, list) and len(figures) >= 1 and isinstance(figures[0], dict):
+            # Single plot (overlay mode with subplots)
             html_content = export_figures_from_plotly_objects(
-                figures, 
+                [figures[0]], 
                 plot_metadata, 
                 title="Phase/Magnitude Analysis",
                 plot_type="Phase/Magnitude Analysis"
             )
         else:
-            # Multiple plot pairs (separate view)
-            # Flatten the list of figure pairs
+            # Multiple plots (separate view, one per signal)
+            # Extract just the figure objects from each figure+subplot_data pair
             flattened_figures = []
             for fig_pair in figures:
-                for fig in fig_pair:
-                    flattened_figures.append(fig)
+                if isinstance(fig_pair, list) and len(fig_pair) >= 1:
+                    flattened_figures.append(fig_pair[0])  # Just the figure, not the subplot data
                     
             html_content = export_figures_from_plotly_objects(
                 flattened_figures, 
