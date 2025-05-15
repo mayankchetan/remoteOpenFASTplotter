@@ -112,3 +112,52 @@ jobs:
           tags: openfast-plotter:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Add a job for building documentation
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r docs/requirements.txt
+          # Install the package in development mode to resolve imports
+          pip install -e .
+          
+      - name: Build documentation
+        run: |
+          cd docs
+          # Remove previous build files if they exist
+          rm -rf _build/html
+          # Build documentation
+          sphinx-build -b html . _build/html
+          
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: documentation
+          path: docs/_build/html/
+          
+      - name: Check for documentation warnings
+        run: |
+          cd docs
+          # Create a file to capture warnings
+          sphinx-build -b html . _build/html > sphinx_warnings.log 2>&1 || true
+          
+          # Check if there are any warnings and display them
+          if grep -q "WARNING" sphinx_warnings.log; then
+            echo "Documentation build has warnings:"
+            grep "WARNING" sphinx_warnings.log
+            # Don't fail the build for warnings, just report them
+            # If you want to make warnings fail the build, uncomment the next line
+            # exit 1
+          else
+            echo "Documentation build completed without warnings"
+          fi
