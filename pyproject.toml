@@ -34,7 +34,8 @@ test = [
     "pytest",
     "pytest-cov",
     "selenium",
-    "playwright"
+    "playwright",
+    "pytest-mock"
 ]
 
 [project.urls]

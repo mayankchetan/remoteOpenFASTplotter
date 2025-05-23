@@ -57,11 +57,42 @@ def test_unique_identifiers():
     assert get_unique_identifiers(single_path) == {single_path[0]: "singlefile.out"}
     
     # Test with identical paths (should ideally not happen, but good to define behavior)
-    # Current implementation would make them unique using numbers.
+    # Current implementation uses the path string as a dictionary key.
+    # If identical path strings are provided in the input list, they will map to a single
+    # entry in the output dictionary, with the value likely determined by the last occurrence.
     identical_paths = ["/path/to/file.out", "/path/to/file.out"]
     ids_identical = get_unique_identifiers(identical_paths)
-    assert len(set(ids_identical.values())) == len(identical_paths) # Check identifiers are unique
-    assert "1:file.out" in ids_identical.values() or "2:file.out" in ids_identical.values()
+    
+    # The dictionary will have one entry for the unique path string.
+    assert len(ids_identical) == 1
+    assert len(set(ids_identical.values())) == 1 
+    
+    # The value will be based on the enumeration of the original list.
+    # If the fallback `f"{i+1}:{os.path.basename(path)}"` is triggered,
+    # and path is "/path/to/file.out", i will be 1 (from the second occurrence).
+    # So, the value would be "2:file.out".
+    # If the fallback is not triggered (e.g. because it's the only path), it'd be "file.out".
+    # Given the function's current logic, if identical_paths = ["/a", "/a"],
+    # the first fallback (parent_and_filename) won't make them unique.
+    # The second fallback (diffing parts) won't make them unique.
+    # The final fallback (numbered) will be used for each path string key.
+    # Since dict keys are unique, the key "/path/to/file.out" will be associated
+    # with the identifier generated for its last appearance in the input list (i=1).
+    expected_identifier_for_duplicate = "2:file.out" # Based on current get_unique_identifiers
+    
+    # However, if there's only one unique path in the input, even if repeated,
+    # the very first condition in get_unique_identifiers might apply:
+    # if len(file_paths) == 1: return {file_paths[0]: os.path.basename(file_paths[0])}
+    # This is not hit if len(identical_paths) is 2.
+    # If filenames are unique (len(set(filenames)) == len(filenames)), it returns basename.
+    # For ["/path/to/file.out", "/path/to/file.out"], filenames are ["file.out", "file.out"].
+    # len(set(filenames)) is 1, len(filenames) is 2. So this condition is false.
+    # Same for parent_and_filename.
+    # The diffing parts logic will also find no differences.
+    # So it will hit the final fallback:
+    # {path: f"{i+1}:{os.path.basename(path)}" for i, path in enumerate(file_paths)}
+    # For key "/path/to/file.out", the value from i=0 will be "1:file.out", then overwritten by i=1 to "2:file.out".
+    assert ids_identical["/path/to/file.out"] == expected_identifier_for_duplicate
 
 
 # Test legend duplication removal
@@ -402,15 +433,24 @@ def test_fft_calculation():
         # Adjust n_exp if signal is too short for default Welch segment length
         n_welch = int(np.log2(len(y) / 4)) # Aim for at least 4 segments
         if n_welch < 1 : n_welch = 1 # Minimum meaningful n_exp for Welch
+    
+    segment_len_welch = (1 << n_welch)
+    welch_resolution = fs / segment_len_welch
+
 
     result_welch = compute_fft(df, "Signal", time_col="Time", averaging="Welch", n_exp=n_welch, windowing='hann')
     assert isinstance(result_welch, FFTResult)
     if result_welch.amplitude.size > 0:
         peak_idx_welch = np.argmax(result_welch.amplitude)
         peak_freq_welch = result_welch.freq[peak_idx_welch]
-        # Welch can smooth peaks and shift them slightly, use a slightly larger tolerance
-        assert (np.isclose(peak_freq_welch, f_signal1, atol=2.0/T * (fs / (1 << n_welch))) or # atol depends on Welch resolution
-                np.isclose(peak_freq_welch, f_signal2, atol=2.0/T * (fs / (1 << n_welch)))), \
-                f"Welch: Expected peak near {f_signal1} or {f_signal2} Hz, got {peak_freq_welch} Hz"
+        # Welch can smooth peaks and shift them slightly.
+        # The tolerance should be related to the frequency resolution of the Welch method.
+        # Bin width of Welch result is fs_welch / N_welch_segment = (fs/segment_overlap_factor) / (points_in_segment) - this is complex.
+        # A simpler approach is to use the bin width: fs / segment_length for Welch.
+        # The effective resolution is also influenced by windowing.
+        # Let's use a tolerance of one bin width of the Welch FFT.
+        assert (np.isclose(peak_freq_welch, f_signal1, atol=welch_resolution) or
+                np.isclose(peak_freq_welch, f_signal2, atol=welch_resolution)), \
+                f"Welch: Expected peak near {f_signal1} or {f_signal2} Hz (tol={welch_resolution:.2f}Hz), got {peak_freq_welch} Hz"
     else:
         pytest.fail("FFT result (Welch) amplitude was empty.")

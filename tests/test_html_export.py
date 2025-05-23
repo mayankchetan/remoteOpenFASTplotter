@@ -50,7 +50,17 @@ def test_html_export_single_plot(tmp_path):
         # Check for plot container (assuming one plot)
         assert 'id="plot-0"' in content
         # Check for the plot's actual title within the JSON data
-        assert '"title": {{"text": "My Single Plot"}}' in content 
+        # Make the assertion more resilient to spacing variations in the JSON string
+        expected_title_json_part = '"title":{"text":"MySinglePlot"}'
+        # Extract the part of the content that contains the plot's JSON representation
+        # This is a simplified way; a full JSON parsing would be more robust but complex here.
+        plot_json_start = content.find('Plotly.newPlot(\'plot-0\'')
+        plot_json_end = content.find(');', plot_json_start)
+        plot_json_content = ""
+        if plot_json_start != -1 and plot_json_end != -1:
+            plot_json_content = content[plot_json_start:plot_json_end]
+        
+        assert expected_title_json_part in plot_json_content.replace(" ", "")
         assert "Plotly.newPlot('plot-0'" in content
 
 
@@ -100,7 +110,15 @@ def test_html_export_multiple_plots(tmp_path):
         for i in range(num_plots):
             assert f'id="plot-{i}"' in content, f"Div for plot {i} not found."
             assert f"Plotly.newPlot('plot-{i}'" in content, f"Plotly call for plot {i} not found."
-            assert f'"title": {{"text": "Plot Number {i+1}"}}' in content, f"Title for plot {i+1} not found in JSON."
+            
+            # Make the assertion more resilient to spacing variations in the JSON string
+            expected_title_json_part = f'"title":{{"text":"PlotNumber{i+1}"}}'
+            plot_json_start = content.find(f'Plotly.newPlot(\'plot-{i}\'')
+            plot_json_end = content.find(');', plot_json_start)
+            plot_json_content = ""
+            if plot_json_start != -1 and plot_json_end != -1:
+                 plot_json_content = content[plot_json_start:plot_json_end]
+            assert expected_title_json_part in plot_json_content.replace(" ", "")
 
 def test_html_export_different_metadata_and_title(tmp_path):
     """Test exporting with different metadata and title."""

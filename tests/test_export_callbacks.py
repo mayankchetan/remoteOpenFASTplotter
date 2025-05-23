@@ -83,17 +83,22 @@ def test_download_fft_html_settings_generation():
     settings_html += "</div>"
 
     # Assertions to check if the HTML contains the expected values
-    assert f"<td>{signalx}</td>" in settings_html
-    assert f"<td>{', '.join(signaly)}</td>" in settings_html
-    assert f"<td>{time_start} to {time_end} seconds</td>" in settings_html
-    assert f"<td>{averaging}</td>" in settings_html
-    assert f"<td>{windowing}</td>" in settings_html
-    assert f"<td>{n_exp}</td>" in settings_html
-    assert f"<td>{'Yes' if 'detrend' in detrend else 'No'}</td>" in settings_html
-    assert f"<td>{xscale}</td>" in settings_html
-    assert f"<td>{x_limit} Hz</td>" in settings_html
+    # Making assertions more robust to exact HTML structure by checking for the value within the relevant tags.
+    # This is still substring matching but more targeted.
+    td_style = 'style="padding: 8px; border-bottom: 1px solid #ddd;"'
+
+    assert f"<td {td_style}>{signalx}</td>" in settings_html
+    assert f"<td {td_style}>{', '.join(signaly)}</td>" in settings_html
+    assert f"<td {td_style}>{time_start if time_start is not None else 'Start'} to {time_end if time_end is not None else 'End'} seconds</td>" in settings_html
+    assert f"<td {td_style}>{averaging}</td>" in settings_html
+    assert f"<td {td_style}>{windowing}</td>" in settings_html
+    assert f"<td {td_style}>{n_exp}</td>" in settings_html
+    assert f"<td {td_style}>{'Yes' if 'detrend' in detrend else 'No'}</td>" in settings_html
+    assert f"<td {td_style}>{xscale}</td>" in settings_html
+    assert f"<td {td_style}>{x_limit} Hz</td>" in settings_html
     
     assert "<h4>Frequency Annotations</h4>" in settings_html
+    # For list items, the content is more direct.
     assert f"<li>{annotations[0]['label']}: {annotations[0]['freq']:.2f} Hz</li>" in settings_html
     assert f"<li>{annotations[1]['label']}: {annotations[1]['freq']:.2f} Hz</li>" in settings_html
 
@@ -160,9 +165,11 @@ def test_download_fft_html_settings_generation_no_annotations_no_time_limits():
     """ # Note: No annotations section here
     settings_html += "</div>"
 
-    assert f"<td>{signalx}</td>" in settings_html
-    assert f"<td>{signaly}</td>" in settings_html # Check single signal handling
-    assert f"<td>Start to End seconds</td>" in settings_html # Check None time limits
-    assert f"<td>{'No'}</td>" in settings_html # Check detrend 'No'
+    td_style = 'style="padding: 8px; border-bottom: 1px solid #ddd;"'
+
+    assert f"<td {td_style}>{signalx}</td>" in settings_html
+    assert f"<td {td_style}>{signaly}</td>" in settings_html # Check single signal handling
+    assert f"<td {td_style}>Start to End seconds</td>" in settings_html # Check None time limits
+    assert f"<td {td_style}>{'No'}</td>" in settings_html # Check detrend 'No'
     assert "<h4>Frequency Annotations</h4>" not in settings_html # Check no annotation header
     assert "<li>" not in settings_html # Check no annotation list items
