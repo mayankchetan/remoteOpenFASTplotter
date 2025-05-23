@@ -41,16 +41,6 @@ test = [
 Homepage = "https://github.com/mayankchetan/remoteOpenFASTplotter"
 
 [tool.setuptools]
-# Explicitly list top-level Python modules
-py_modules = [
-    "app",
-    "callbacks", # This refers to the root callbacks.py file
-    "components",
-    "data_manager",
-    "html_exporter",
-    "user_preferences",
-    "utils"
-]
 # Explicitly list packages (directories containing an __init__.py)
 # This refers to the 'callbacks/' and 'tools/' directories.
 packages = ["callbacks", "tools"]
