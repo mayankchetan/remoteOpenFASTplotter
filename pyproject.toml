@@ -7,10 +7,10 @@ name = "remoteOpenFASTplotter"
 version = "0.1.0"
 description = "A Dash application for plotting OpenFAST data."
 readme = "README.md"
-license = { file = "LICENSE" } # Assuming LICENSE file exists at the root
+license = { text = "Apache-2.0" } # Using SPDX identifier for MIT License
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License", # Specify the actual license if different
+    # "License :: OSI Approved :: MIT License", # Removed as per deprecation warning
     "Operating System :: OS Independent",
     "Framework :: Dash",
 ]
@@ -28,9 +28,6 @@ dependencies = [
     "psutil>=5.9.0"
 ]
 
-[project.urls]
-Homepage = "https://github.com/mayankchetan/remoteOpenFASTplotter" # Replace if different
-
 [project.optional-dependencies]
 test = [
     "flake8",
@@ -39,3 +36,21 @@ test = [
     "selenium",
     "playwright"
 ]
+
+[project.urls]
+Homepage = "https://github.com/mayankchetan/remoteOpenFASTplotter"
+
+[tool.setuptools]
+# Explicitly list top-level Python modules
+py_modules = [
+    "app",
+    "callbacks", # This refers to the root callbacks.py file
+    "components",
+    "data_manager",
+    "html_exporter",
+    "user_preferences",
+    "utils"
+]
+# Explicitly list packages (directories containing an __init__.py)
+# This refers to the 'callbacks/' and 'tools/' directories.
+packages = ["callbacks", "tools"]
