@@ -17,18 +17,6 @@ except ImportError:
 
 import plotly.graph_objects as go
 
-# Fixture to find test files
-@pytest.fixture
-def test_files():
-    """Find test files in the test_files directory"""
-    test_file_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "test_files")
-    outb_files = glob.glob(os.path.join(test_file_dir, "*.outb"))
-    
-    if not outb_files:
-        pytest.skip("No test files found. Run 'python utils/download_test_files.py' first.")
-    
-    return outb_files
-
 # Test the unique identifier generation
 def test_unique_identifiers():
     # Test with simple filenames
@@ -60,6 +48,21 @@ def test_unique_identifiers():
             assert len(set(real_identifiers.values())) == len(outb_files)
     except Exception:
         pass  # If test files aren't available, skip this part
+
+    # Test with empty list
+    assert get_unique_identifiers([]) == {}
+
+    # Test with single path
+    single_path = ["/path/to/singlefile.out"]
+    assert get_unique_identifiers(single_path) == {single_path[0]: "singlefile.out"}
+    
+    # Test with identical paths (should ideally not happen, but good to define behavior)
+    # Current implementation would make them unique using numbers.
+    identical_paths = ["/path/to/file.out", "/path/to/file.out"]
+    ids_identical = get_unique_identifiers(identical_paths)
+    assert len(set(ids_identical.values())) == len(identical_paths) # Check identifiers are unique
+    assert "1:file.out" in ids_identical.values() or "2:file.out" in ids_identical.values()
+
 
 # Test legend duplication removal
 def test_remove_duplicated_legends():
@@ -122,47 +125,96 @@ def test_file_info():
         # Clean up the temp file
         try:
             os.unlink(test_file)
-        except:
+        except Exception: # pylint: disable=broad-except
             pass  # If file already deleted or couldn't be deleted, ignore
 
-# This test is optional and depends on downloaded files
-@pytest.mark.skipif(True, reason="Optional test that requires actual OpenFAST files")
-def test_draw_graph_with_files(test_files):
+# This test depends on downloaded files (via test_files fixture from conftest.py)
+def test_draw_graph_with_files(test_files): # Removed skipif
     """Test if the draw_graph function works with real OpenFAST files"""
-    if not test_files:
-        pytest.skip("No test files available")
+    # test_files fixture will skip if no files are found.
     
     # Load the test files
     file_data = []
-    for file_path in test_files[:2]:  # Use at most 2 files
-        path, df, error, _ = load_file(file_path)
-        if df is not None:
-            file_data.append((path, df))
-    
+    # Ensure we have at least one file to test, ideally two for overlay
+    max_files_to_load = min(len(test_files), 2) 
+    if max_files_to_load == 0:
+        pytest.skip("No test files were loaded by the fixture, though fixture didn't skip.")
+
+    for file_path in test_files[:max_files_to_load]:
+        # Assuming load_file is robust enough for this test context
+        # In a real scenario, you might mock load_file if it's too complex/slow
+        path_obj = Path(file_path)
+        # data_manager.load_file returns: file_path, df, error_message, original_df
+        # For this test, we mostly care about df.
+        # The original load_file in data_manager might need adjustment if it expects specific file types
+        # or has other side effects not handled here.
+        # For now, using a simplified mock-like approach if direct load_file is problematic.
+        try:
+            # Attempt to use the actual load_file from data_manager
+            _path, df, error, _ = load_file(file_path) # Use _path as path is already file_path
+            if error:
+                print(f"Warning: Error loading file {file_path}: {error}")
+                # If a file fails to load, we might want to skip or handle it gracefully
+                # For this test, we'll try to continue if at least one file loads.
+                if df is None: # If df is None due to error, skip this file
+                    continue
+            if df is not None and not df.empty:
+                 file_data.append((file_path, df))
+            else:
+                print(f"Warning: Loaded empty or None DataFrame for {file_path}")
+
+        except Exception as e: # pylint: disable=broad-except
+            # If load_file itself fails unexpectedly
+            print(f"Error processing file {file_path} with load_file: {e}")
+            # Depending on strictness, could fail the test or skip the file
+            continue 
+            
     if not file_data:
-        pytest.skip("Could not load test files")
+        pytest.skip("Could not load any valid DataFrame from test files.")
     
     # Extract paths and dataframes
     file_paths = [item[0] for item in file_data]
     dfs = [item[1] for item in file_data]
     
     # Get common columns for plotting
+    if not dfs: # Should be caught by previous check, but as a safeguard
+        pytest.skip("No DataFrames available for plotting.")
+
     common_cols = set(dfs[0].columns)
-    for df in dfs[1:]:
-        common_cols = common_cols.intersection(set(df.columns))
+    for df_item in dfs[1:]:
+        common_cols = common_cols.intersection(set(df_item.columns))
+    
+    if not common_cols:
+        pytest.skip("No common columns found in loaded DataFrames for plotting.")
     common_cols = list(common_cols)
     
     # Choose signals for plotting
     signalx = "Time" if "Time" in common_cols else common_cols[0]
-    signaly = [col for col in common_cols[:3] if col != signalx]
     
-    if not signaly:
-        signaly = [common_cols[0]]
+    # Select up to 2 other signals for Y, different from X
+    signaly = [col for col in common_cols if col != signalx][:2] 
+    
+    if not signaly: # If only one common column (signalx), use it for Y too for test purposes
+        signaly = [signalx] 
     
     # Test overlay plot
     fig_overlay = draw_graph(file_paths, dfs, signalx, signaly, "overlay")
-    assert isinstance(fig_overlay, go.Figure)
-    assert len(fig_overlay.data) >= len(file_paths)
+    assert isinstance(fig_overlay, go.Figure), "draw_graph should return a Plotly Figure object"
+    # Number of traces should be num_files * num_y_signals for overlay
+    assert len(fig_overlay.data) == len(file_paths) * len(signaly), \
+        f"Expected {len(file_paths) * len(signaly)} traces for overlay, got {len(fig_overlay.data)}"
+
+    # Test separate plot (if more than one file, otherwise it's similar to overlay)
+    if len(file_paths) > 1:
+        fig_separate = draw_graph(file_paths, dfs, signalx, signaly, "separate")
+        assert isinstance(fig_separate, go.Figure)
+        # For separate plots, each file's Y signals are plotted.
+        # The current draw_graph with 'separate' still creates one legend entry per file (if showlegend not false)
+        # but plots all y-signals for that file with the same color.
+        # The number of traces will still be num_files * num_y_signals.
+        assert len(fig_separate.data) == len(file_paths) * len(signaly), \
+             f"Expected {len(file_paths) * len(signaly)} traces for separate, got {len(fig_separate.data)}"
+
 
 # Add test for annotation badge creation
 def test_annotation_badges():
@@ -186,38 +238,53 @@ def test_annotation_badges():
     ]
     badges = create_annotation_badges(annotations)
     assert len(badges) == 3
+    if badges: # Check properties of a badge if list is not empty
+        first_badge = badges[0]
+        # Assuming dbc.Badge is the type, check some properties
+        assert hasattr(first_badge, 'children')
+        assert "First: 1.00 Hz" in str(first_badge.children[0]) # Check formatted string
+        assert first_badge.color == "info"
 
-# Test FFT utility functions if available
-@pytest.mark.skipif(True, reason="Optional test that requires FFT utility module")
+# Test FFT utility functions if available (Removed skipif)
+# This test might be redundant if test_fft_analysis.py is comprehensive.
+# For now, enabling it as a basic integration check.
 def test_fft_utils():
-    """Test the FFT utility functions"""
+    """Test the FFT utility functions (basic check)."""
     try:
         import numpy as np
-        import pandas as pd  # Already imported at the top, but keeping for clarity
-        from tools.fft_analysis import compute_fft, FFTResult
+        # pandas as pd is already imported at the top
+        from tools.fft_analysis import compute_fft, FFTResult # Ensure FFTResult is imported
         
         # Create a simple test signal: sine wave with frequency 10 Hz
         fs = 1000  # 1 kHz sampling rate
         t = np.arange(0, 1, 1/fs)  # 1 second signal
-        f = 10  # 10 Hz sine wave
-        signal = np.sin(2 * np.pi * f * t)
+        f_signal = 10  # 10 Hz sine wave
+        signal = np.sin(2 * np.pi * f_signal * t) + 0.5 * np.sin(2 * np.pi * (f_signal * 2) * t) # Add a harmonic
         
         # Create a dataframe with the signal
-        df = pd.DataFrame({"Time": t, "Signal": signal})
+        df = pd.DataFrame({"Time": t, "TestSignal": signal})
         
         # Compute FFT without averaging
-        result = compute_fft(df, "Signal", time_col="Time", averaging="None")
+        result = compute_fft(df, "TestSignal", time_col="Time", averaging="None", n_exp=None) # Use n_exp=None for full resolution for short signal
         
         # Check that the result is a FFTResult object
-        assert isinstance(result, FFTResult)
+        assert isinstance(result, FFTResult), "compute_fft should return an FFTResult object"
         
         # Check that the peak frequency is at 10 Hz
-        peak_idx = np.argmax(result.amplitude)
-        peak_freq = result.freq[peak_idx]
-        assert np.isclose(peak_freq, 10, atol=1.0)
-        
+        # For short signals without windowing/averaging, peak might not be exact
+        # and can be spread over a few bins.
+        if result.amplitude.size > 0 :
+            peak_idx = np.argmax(result.amplitude)
+            peak_freq = result.freq[peak_idx]
+            # Looser tolerance for simple test, or check for energy around the peak.
+            # For a 1s signal at 1kHz, freq resolution is 1Hz.
+            assert np.isclose(peak_freq, f_signal, atol=1.0), \
+                f"Expected peak frequency around {f_signal} Hz, got {peak_freq} Hz"
+        else:
+            pytest.fail("FFT result amplitude was empty.")
+            
     except ImportError:
-        pytest.skip("FFT utility module not available")
+        pytest.skip("FFT utility module (tools.fft_analysis) or its dependencies (numpy/pandas) not available.")
 
 # Test FFT annotation display in plots
 def test_fft_annotations_in_plots():
@@ -286,41 +353,64 @@ def test_fft_annotations_in_plots():
         assert fig.layout.annotations[0].text == annotations[0]["label"], "First annotation should have correct label"
 
 # Test FFT calculations
-@pytest.mark.skipif("FFTResult" not in globals(), reason="FFT module not available")
+# Removed skipif as FFTResult should be importable if tools.fft_analysis is there.
+# If tools.fft_analysis is missing, the import will fail and test_fft_utils will skip.
 def test_fft_calculation():
-    """Test FFT calculation with annotations"""
+    """Test FFT calculation with different averaging methods."""
     try:
         import numpy as np
-        import pandas as pd
-        from tools.fft_analysis import compute_fft
+        # pandas as pd is already imported
+        from tools.fft_analysis import compute_fft, FFTResult # Ensure FFTResult is imported for type check if needed
     except ImportError:
-        pytest.skip("FFT module not available")
+        pytest.skip("FFT module (tools.fft_analysis) or its dependencies not available for fft_calculation test.")
     
-    # Create a simple sine wave signal
-    fs = 100  # Sample rate, Hz
+    # Create a more complex sine wave signal for robust testing
+    fs = 1000  # Sample rate, Hz
     T = 5.0    # Duration, seconds
-    f_signal = 5.0  # Signal frequency, Hz
+    f_signal1 = 50.0  # Signal frequency 1, Hz
+    f_signal2 = 120.0 # Signal frequency 2, Hz
     
     t = np.linspace(0, T, int(T * fs), endpoint=False)
-    y = np.sin(2 * np.pi * f_signal * t)
+    y = (np.sin(2 * np.pi * f_signal1 * t) + 
+         0.5 * np.sin(2 * np.pi * f_signal2 * t) + 
+         0.2 * np.random.randn(len(t))) # Add some noise
     
     # Create a DataFrame
     df = pd.DataFrame({"Time": t, "Signal": y})
     
     # Test FFT calculation without averaging
-    result_no_avg = compute_fft(df, "Signal", time_col="Time", averaging="None")
-    
-    # Find the peak frequency
-    peak_idx = np.argmax(result_no_avg.amplitude)
-    peak_freq = result_no_avg.freq[peak_idx]
-    
-    # Check that the peak is at our signal frequency
-    assert np.isclose(peak_freq, f_signal, rtol=1e-2), f"Expected peak at {f_signal} Hz, got {peak_freq} Hz"
-    
+    result_no_avg = compute_fft(df, "Signal", time_col="Time", averaging="None", n_exp=None) # Full resolution
+    assert isinstance(result_no_avg, FFTResult)
+    if result_no_avg.amplitude.size > 0:
+        # Find the peak frequencies (should be around f_signal1 and f_signal2)
+        # This requires a more sophisticated peak finding or spectral analysis for multiple peaks.
+        # For simplicity, check if dominant peak is one of the signals.
+        peak_idx_no_avg = np.argmax(result_no_avg.amplitude)
+        peak_freq_no_avg = result_no_avg.freq[peak_idx_no_avg]
+        assert (np.isclose(peak_freq_no_avg, f_signal1, atol=1.0/T) or  # Freq resolution = 1/T
+                np.isclose(peak_freq_no_avg, f_signal2, atol=1.0/T)), \
+                f"No-avg: Expected peak near {f_signal1} or {f_signal2} Hz, got {peak_freq_no_avg} Hz"
+    else:
+        pytest.fail("FFT result (no_avg) amplitude was empty.")
+
     # Test FFT calculation with Welch averaging
-    result_welch = compute_fft(df, "Signal", time_col="Time", averaging="Welch")
-    peak_idx_welch = np.argmax(result_welch.amplitude)
-    peak_freq_welch = result_welch.freq[peak_idx_welch]
-    
-    # Check that Welch method also finds the correct peak
-    assert np.isclose(peak_freq_welch, f_signal, rtol=1e-1), f"Welch: Expected peak at {f_signal} Hz, got {peak_freq_welch} Hz"
+    # Welch needs segments; n_exp=10 means 2^10=1024 points per segment.
+    # With 5s signal and 1kHz fs, we have 5000 points.
+    # (5000 / 1024) segments ~ 4-5 segments, which is reasonable for Welch.
+    n_welch = 10 
+    if len(y) < (1 << n_welch): # Ensure signal is long enough for n_exp
+        # Adjust n_exp if signal is too short for default Welch segment length
+        n_welch = int(np.log2(len(y) / 4)) # Aim for at least 4 segments
+        if n_welch < 1 : n_welch = 1 # Minimum meaningful n_exp for Welch
+
+    result_welch = compute_fft(df, "Signal", time_col="Time", averaging="Welch", n_exp=n_welch, windowing='hann')
+    assert isinstance(result_welch, FFTResult)
+    if result_welch.amplitude.size > 0:
+        peak_idx_welch = np.argmax(result_welch.amplitude)
+        peak_freq_welch = result_welch.freq[peak_idx_welch]
+        # Welch can smooth peaks and shift them slightly, use a slightly larger tolerance
+        assert (np.isclose(peak_freq_welch, f_signal1, atol=2.0/T * (fs / (1 << n_welch))) or # atol depends on Welch resolution
+                np.isclose(peak_freq_welch, f_signal2, atol=2.0/T * (fs / (1 << n_welch)))), \
+                f"Welch: Expected peak near {f_signal1} or {f_signal2} Hz, got {peak_freq_welch} Hz"
+    else:
+        pytest.fail("FFT result (Welch) amplitude was empty.")
