@@ -2,6 +2,7 @@
 Module for exporting plots and data to HTML.
 """
 
+
 def export_to_html(data, output_path):
     """Export data to an HTML file."""
     with open(output_path, "w") as f:

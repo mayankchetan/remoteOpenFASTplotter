@@ -3,27 +3,30 @@ HTML export utilities for OpenFAST Plotter
 Adds metadata to HTML exports
 """
 
+import plotly
+
+
 def add_metadata_to_html(html_content, metadata, plot_type="Plot"):
     """
     Add metadata information to HTML content by directly injecting it into the HTML
-    
+
     Args:
         html_content (str): Original HTML content
         metadata (dict): Metadata dictionary with keys: datetime, system, user, version
         plot_type (str): Type of plot (Time Domain or FFT)
-    
+
     Returns:
         str: HTML content with metadata added
     """
     if not html_content:
         return html_content
-    
+
     # Extract metadata values
     timestamp = metadata.get("datetime", "Unknown")
     system = metadata.get("system", "Unknown")
     username = metadata.get("user", "Unknown")
     version = metadata.get("version", "Unknown")
-    
+
     # Create metadata HTML section
     metadata_html = f"""
     <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 15px; margin: 10px 0; font-family: sans-serif;">
@@ -48,44 +51,49 @@ def add_metadata_to_html(html_content, metadata, plot_type="Plot"):
         </table>
     </div>
     """
-    
+
     # Check for plotly.js script tag to insert our content right after it
-    script_pos = html_content.find('<script type="text/javascript">window.PlotlyConfig')
+    script_pos = html_content.find(
+        '<script type="text/javascript">window.PlotlyConfig')
     if script_pos >= 0:
         # Find the end of the script tag to insert content
         script_end_pos = html_content.find('</script>', script_pos)
         if script_end_pos >= 0:
-            return html_content[:script_end_pos+9] + metadata_html + html_content[script_end_pos+9:]
-    
+            return html_content[:script_end_pos + 9] + \
+                metadata_html + html_content[script_end_pos + 9:]
+
     # If no plotly script tag, look for body tag
     body_pos = html_content.find("<body>")
     if body_pos >= 0:
-        return html_content[:body_pos+6] + metadata_html + html_content[body_pos+6:]
-    
+        return html_content[:body_pos + 6] + \
+            metadata_html + html_content[body_pos + 6:]
+
     # Last resort: add at the beginning
-    return "<html><head><meta charset='utf-8'></head><body>" + metadata_html + html_content + "</body></html>"
+    return "<html><head><meta charset='utf-8'></head><body>" + \
+        metadata_html + html_content + "</body></html>"
+
 
 def inject_title_and_metadata(html_content, metadata, plot_type="Plot"):
     """
     Inject a title and metadata directly into the HTML content as a visible section
-    
+
     Args:
         html_content (str): Original HTML content
         metadata (dict): Metadata dictionary
         plot_type (str): Type of plot
-        
+
     Returns:
         str: HTML content with title and metadata
     """
     if not html_content or "<div" not in html_content:
         return html_content
-    
+
     # Extract metadata values
     timestamp = metadata.get("datetime", "Unknown")
     system = metadata.get("system", "Unknown")
     username = metadata.get("user", "Unknown")
     version = metadata.get("version", "Unknown")
-    
+
     # Create header HTML with metadata
     header_html = f"""
     <div style="width:100%; padding:10px; background-color:#f8f9fa; border-bottom:1px solid #dee2e6; margin-bottom:15px;">
@@ -98,30 +106,37 @@ def inject_title_and_metadata(html_content, metadata, plot_type="Plot"):
         </div>
     </div>
     """
-    
+
     # Find the first div tag to insert our header before it
     first_div_pos = html_content.find('<div')
     if first_div_pos >= 0:
-        return html_content[:first_div_pos] + header_html + html_content[first_div_pos:]
-    
+        return html_content[:first_div_pos] + \
+            header_html + html_content[first_div_pos:]
+
     # If no div tag found, insert after body or at beginning
     body_pos = html_content.find("<body>")
     if body_pos >= 0:
-        return html_content[:body_pos+6] + header_html + html_content[body_pos+6:]
-    
+        return html_content[:body_pos + 6] + \
+            header_html + html_content[body_pos + 6:]
+
     # Last resort
     return header_html + html_content
 
-def prepare_html_for_export(fig_html, metadata, title="OpenFAST Plot", plot_type="Time Domain"):
+
+def prepare_html_for_export(
+        fig_html,
+        metadata,
+        title="OpenFAST Plot",
+        plot_type="Time Domain"):
     """
     Prepare plotly figure HTML for export with metadata
-    
+
     Args:
         fig_html (str): HTML string from plotly figure
         metadata (dict): Metadata dictionary
         title (str): Title for the HTML page
         plot_type (str): Type of plot (Time Domain or FFT)
-        
+
     Returns:
         str: Complete HTML with metadata
     """
@@ -136,31 +151,37 @@ def prepare_html_for_export(fig_html, metadata, title="OpenFAST Plot", plot_type
     {fig_html}
 </body>
 </html>"""
-    
+
     # Add title and metadata visibly in the HTML content
     fig_html = inject_title_and_metadata(fig_html, metadata, plot_type)
-    
+
     # Ensure the HTML is well-formed
     if "</html>" not in fig_html:
         fig_html += "</body></html>"
-    
+
     return fig_html
 
-def combine_multiple_plots_to_html(fig_html_list, metadata, title="OpenFAST FFT Plots", plot_type="FFT Analysis"):
+
+def combine_multiple_plots_to_html(
+        fig_html_list,
+        metadata,
+        title="OpenFAST FFT Plots",
+        plot_type="FFT Analysis"):
     """
     Combine multiple plot HTMLs into a single HTML file with metadata
-    
+
     Args:
         fig_html_list (list): List of HTML strings from plotly figures
         metadata (dict): Metadata dictionary
         title (str): Title for the HTML page
         plot_type (str): Type of plot (Time Domain or FFT)
-        
+
     Returns:
         str: Complete HTML with all plots and metadata
     """
-    # This function has issues with incomplete HTML - let's create a completely new approach
-    
+    # This function has issues with incomplete HTML - let's create a
+    # completely new approach
+
     # Build a proper HTML document from scratch
     html_output = f"""<!DOCTYPE html>
 <html>
@@ -246,31 +267,41 @@ def combine_multiple_plots_to_html(fig_html_list, metadata, title="OpenFAST FFT 
     if fig_html_list and len(fig_html_list) > 0:
         first_fig = fig_html_list[0]
         scripts = []
-        
+
         # Look for Plotly config script
-        config_script_start = first_fig.find('<script type="text/javascript">window.PlotlyConfig')
+        config_script_start = first_fig.find(
+            '<script type="text/javascript">window.PlotlyConfig')
         if config_script_start >= 0:
-            config_script_end = first_fig.find('</script>', config_script_start)
+            config_script_end = first_fig.find(
+                '</script>', config_script_start)
             if config_script_end >= 0:
-                scripts.append(first_fig[config_script_start:config_script_end+9])
-        
+                scripts.append(
+                    first_fig[config_script_start:config_script_end + 9])
+
         # Look for plotly-latest-min.js script
-        plotly_script_start = first_fig.find('<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>')
+        plotly_script_start = first_fig.find(
+            '<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>')
         if plotly_script_start >= 0:
-            scripts.append('<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>')
-        
-        # Look for mathjax script 
-        mathjax_script_start = first_fig.find('<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax')
+            scripts.append(
+                '<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>')
+
+        # Look for mathjax script
+        mathjax_script_start = first_fig.find(
+            '<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax')
         if mathjax_script_start >= 0:
-            mathjax_script_end = first_fig.find('</script>', mathjax_script_start)
+            mathjax_script_end = first_fig.find(
+                '</script>', mathjax_script_start)
             if mathjax_script_end >= 0:
-                scripts.append(first_fig[mathjax_script_start:mathjax_script_end+9])
+                scripts.append(
+                    first_fig[mathjax_script_start:mathjax_script_end + 9])
 
     # Import Plotly directly if we couldn't find it
     if not scripts or not any('plotly' in script for script in scripts):
-        scripts = ['<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>']
+        scripts = [
+            '<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>']
 
-    # Now directly generate figures using Plotly.js instead of trying to extract divs
+    # Now directly generate figures using Plotly.js instead of trying to
+    # extract divs
     html_output += """
     <div id="plots-container">
 """
@@ -281,7 +312,7 @@ def combine_multiple_plots_to_html(fig_html_list, metadata, title="OpenFAST FFT 
 
     html_output += "    </div>\n"
 
-    # Add scripts 
+    # Add scripts
     for script in scripts:
         html_output += f"    {script}\n"
 
@@ -307,9 +338,9 @@ def combine_multiple_plots_to_html(fig_html_list, metadata, title="OpenFAST FFT 
                     if open_braces == 0:
                         break
                 pos += 1
-            
+
             if pos < len(fig_html):
-                figure_json = fig_html[data_start:pos+1]
+                figure_json = fig_html[data_start:pos + 1]
                 html_output += f"""
             try {{
                 var figure{i} = {figure_json};
@@ -319,7 +350,7 @@ def combine_multiple_plots_to_html(fig_html_list, metadata, title="OpenFAST FFT 
                 document.getElementById('plot-{i}').innerHTML = '<p style="color:red;">Error plotting figure {i}: ' + e.message + '</p>';
             }}
 """
-    
+
     html_output += """
         });
     </script>
@@ -328,21 +359,26 @@ def combine_multiple_plots_to_html(fig_html_list, metadata, title="OpenFAST FFT 
 
     return html_output
 
-def export_figures_from_plotly_objects(figs, metadata, title="OpenFAST Plots", plot_type="Analysis"):
+
+def export_figures_from_plotly_objects(
+        figs,
+        metadata,
+        title="OpenFAST Plots",
+        plot_type="Analysis"):
     """
     Export directly from Plotly figure objects instead of HTML strings
-    
+
     Args:
         figs (list): List of plotly.graph_objects.Figure objects
         metadata (dict): Metadata dictionary
         title (str): Title for the HTML page
         plot_type (str): Type of plot (Time Domain or FFT)
-        
+
     Returns:
         str: Complete HTML with all plots and metadata
     """
-    import plotly
-    
+    # import plotly # Moved to top
+
     # Build HTML header and metadata section
     html_output = f"""<!DOCTYPE html>
 <html>
@@ -429,10 +465,10 @@ def export_figures_from_plotly_objects(figs, metadata, title="OpenFAST Plots", p
     for i, fig in enumerate(figs):
         div_id = f"plot-{i}"
         html_output += f"""    <div id="{div_id}" class="plot-container"></div>\n"""
-        
+
         # Convert figure to JSON
         plot_json = plotly.io.to_json(fig)
-        
+
         # Add script to render this figure
         html_output += f"""
     <script type="text/javascript">
@@ -451,13 +487,15 @@ def export_figures_from_plotly_objects(figs, metadata, title="OpenFAST Plots", p
     return html_output
 
 # Add a new debugging helper function to validate HTML structure
+
+
 def validate_html_structure(html_content):
     """
     Validates basic HTML structure and returns info about missing tags
-    
+
     Args:
         html_content (str): HTML content to validate
-        
+
     Returns:
         dict: Information about HTML structure
     """
@@ -467,14 +505,14 @@ def validate_html_structure(html_content):
         "has_body_tags": "<body" in html_content and "</body>" in html_content,
         "has_plotly_div": '<div class="plotly-graph-div' in html_content,
         "has_scripts": '<script' in html_content and '</script>' in html_content,
-        "length": len(html_content)
-    }
+        "length": len(html_content)}
     return info
+
 
 def write_debug_info(filename, content, message="Debug info"):
     """
     Write debug info to a file for diagnostics
-    
+
     Args:
         filename (str): File to write to
         content (str): Content to write

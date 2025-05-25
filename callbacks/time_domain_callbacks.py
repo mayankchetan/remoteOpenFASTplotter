@@ -17,7 +17,7 @@ from utils import draw_graph, get_unique_identifiers
 
 def register_time_domain_callbacks(app):
     """Register time domain plotting callbacks with the Dash app"""
-    
+
     # Update plots based on user selections
     @app.callback(
         Output("plot-output", "children"),
@@ -35,10 +35,20 @@ def register_time_domain_callbacks(app):
         State("time-end", "value"),
         prevent_initial_call=True
     )
-    def update_plots(n_clicks, loaded_files, file_paths, file_order, signalx, signaly, plot_option, current_fig, start_time, end_time):
+    def update_plots(
+            n_clicks,
+            loaded_files,
+            file_paths,
+            file_order,
+            signalx,
+            signaly,
+            plot_option,
+            current_fig,
+            start_time,
+            end_time):
         """
         Update plots based on selected signals and plot options.
-        
+
         This function:
         1. Creates plots based on user-selected signals
         2. Handles both overlay and separate plot modes
@@ -48,19 +58,21 @@ def register_time_domain_callbacks(app):
         """
         # Check if we have valid input data
         if not loaded_files or "files" not in loaded_files or not file_paths or not DATAFRAMES or not signalx or not signaly:
-            return html.Div("Select signals to plot", className="text-center p-5 text-muted"), {}, None
-        
-        # Use the custom file order if available, otherwise use the default order
+            return html.Div("Select signals to plot",
+                            className="text-center p-5 text-muted"), {}, None
+
+        # Use the custom file order if available, otherwise use the default
+        # order
         ordered_paths = file_order if file_order else file_paths
-        
+
         # Ensure we only include paths that exist in the loaded files
         ordered_paths = [path for path in ordered_paths if path in file_paths]
-        
+
         # Add any paths that might not be in the order list yet
         for path in file_paths:
             if path not in ordered_paths:
                 ordered_paths.append(path)
-        
+
         # Store the current plot configuration for export
         plot_config = {
             "file_paths": ordered_paths,
@@ -70,14 +82,14 @@ def register_time_domain_callbacks(app):
             "start_time": start_time,
             "end_time": end_time
         }
-        
+
         # Apply time range filtering to DataFrames
         filtered_dfs = []
         valid_paths = []
         for file_path in ordered_paths:
             if file_path in DATAFRAMES:
                 df = DATAFRAMES[file_path].copy()
-                
+
                 # Apply time filtering if specified
                 if start_time is not None or end_time is not None:
                     mask = pd.Series(True, index=df.index)
@@ -86,28 +98,38 @@ def register_time_domain_callbacks(app):
                     if end_time is not None:
                         mask = mask & (df[signalx] <= end_time)
                     df = df[mask]
-                
+
                 if not df.empty:
                     filtered_dfs.append(df)
                     valid_paths.append(file_path)
-        
+
         if not filtered_dfs:
-            return html.Div("No data in selected time range", style={"color": "red"}), plot_config, None
-        
+            return html.Div(
+                "No data in selected time range", style={
+                    "color": "red"}), plot_config, None
+
         # If overlay option or only one file, create a combined plot
         if plot_option == "overlay" or len(valid_paths) == 1:
             # Generate new figure
-            fig = draw_graph(valid_paths, filtered_dfs, signalx, signaly, "overlay")
-                
-            return dcc.Graph(figure=fig, id="main-plot-graph", config={'displayModeBar': True}), plot_config, fig
-        
+            fig = draw_graph(
+                valid_paths,
+                filtered_dfs,
+                signalx,
+                signaly,
+                "overlay")
+
+            return dcc.Graph(figure=fig, id="main-plot-graph",
+                             config={'displayModeBar': True}), plot_config, fig
+
         # If separate option, create individual plots for each file
         elif plot_option == "separate":
             plots = []
             figures = []
-            
-            for i, (file_path, df) in enumerate(zip(valid_paths, filtered_dfs)):
-                fig = draw_graph([file_path], [df], signalx, signaly, "separate")
+
+            for i, (file_path, df) in enumerate(
+                    zip(valid_paths, filtered_dfs)):
+                fig = draw_graph(
+                    [file_path], [df], signalx, signaly, "separate")
                 figures.append(fig)
                 plot_id = f"plot-{uuid.uuid4()}"
                 path_identifiers = get_unique_identifiers(valid_paths)
@@ -116,7 +138,10 @@ def register_time_domain_callbacks(app):
                     [
                         html.Div([
                             # Add order number badge
-                            dbc.Badge(f"{ordered_paths.index(file_path)+1}", color="primary", className="me-2"),
+                            dbc.Badge(
+                                f"{ordered_paths.index(file_path)+1}",
+                                color="primary",
+                                className="me-2"),
                             path_identifiers[file_path],
                         ]),
                         html.Span(
@@ -127,7 +152,9 @@ def register_time_domain_callbacks(app):
                         ),
                         dbc.Tooltip(
                             file_path,
-                            target={"type": "file-path-tooltip", "index": plot_id},
+                            target={
+                                "type": "file-path-tooltip",
+                                "index": plot_id},
                         )
                     ],
                     className="d-flex justify-content-between align-items-center"
@@ -140,7 +167,7 @@ def register_time_domain_callbacks(app):
                         ], className="p-1")
                     ], className="mb-3")
                 )
-            
+
             # Return only the first figure for export purposes
             first_fig = figures[0] if figures else None
             return html.Div(plots), plot_config, first_fig

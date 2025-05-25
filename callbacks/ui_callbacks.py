@@ -9,7 +9,7 @@ from dash.exceptions import PreventUpdate
 
 def register_ui_callbacks(app):
     """Register UI-related callbacks with the Dash app"""
-    
+
     # Show/Hide loading spinner
     @app.callback(
         Output("loading-container", "style"),
@@ -21,7 +21,7 @@ def register_ui_callbacks(app):
             return {"display": "block"}
         else:
             return {"display": "none"}
-    
+
     # Background processing for file loading
     @app.callback(
         Output("is-loading", "data", allow_duplicate=True),
@@ -33,7 +33,7 @@ def register_ui_callbacks(app):
         if n_clicks:
             return True
         return False
-    
+
     # Toggle error details collapse
     @app.callback(
         Output("error-details-collapse", "is_open"),
@@ -44,7 +44,7 @@ def register_ui_callbacks(app):
     def toggle_error_details(n_clicks, is_open):
         """Toggle the visibility of the error details section."""
         return not is_open
-    
+
     # Toggle saved paths collapse
     @app.callback(
         Output("saved-paths-collapse", "is_open"),
@@ -57,7 +57,7 @@ def register_ui_callbacks(app):
         """Toggle the visibility of the saved file paths section"""
         if n_clicks is None:
             raise PreventUpdate
-            
+
         # Toggle visibility and change button text
         if is_open:
             return False, "Saved File Path Sets ▾"
