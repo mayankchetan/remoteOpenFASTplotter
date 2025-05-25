@@ -3,9 +3,10 @@ import pytest
 # For export_callbacks, we can test the HTML generation for the settings table.
 # The main part of the callback (fig.to_html()) is a Plotly function.
 
+
 def test_download_fft_html_settings_generation():
     """Test the generation of the HTML settings table in download_fft_html."""
-    
+
     # Sample inputs that would be States in the callback
     signalx = "Time"
     signaly = ["WindSpeed", "RotorSpeed"]
@@ -14,7 +15,7 @@ def test_download_fft_html_settings_generation():
     averaging = "Welch"
     windowing = "hann"
     n_exp = 12
-    detrend = ["detrend"] # As it's a checklist, value is a list
+    detrend = ["detrend"]  # As it's a checklist, value is a list
     x_limit = 50
     xscale = "log"
     annotations = [
@@ -69,7 +70,7 @@ def test_download_fft_html_settings_generation():
             </tr>
         </table>
     """
-    
+
     if annotations and len(annotations) > 0:
         settings_html += """
         <h4 style="margin-top: 15px;">Frequency Annotations</h4>
@@ -96,22 +97,25 @@ def test_download_fft_html_settings_generation():
     assert f"<td {td_style}>{'Yes' if 'detrend' in detrend else 'No'}</td>" in settings_html
     assert f"<td {td_style}>{xscale}</td>" in settings_html
     assert f"<td {td_style}>{x_limit} Hz</td>" in settings_html
-    
-    assert "<h4>Frequency Annotations</h4>" in settings_html
+
+    # Make the assertion for the header more specific, including potential style attributes
+    # and ignoring leading/trailing whitespace for the line itself.
+    assert '<h4 style="margin-top: 15px;">Frequency Annotations</h4>' in settings_html
     # For list items, the content is more direct.
     assert f"<li>{annotations[0]['label']}: {annotations[0]['freq']:.2f} Hz</li>" in settings_html
     assert f"<li>{annotations[1]['label']}: {annotations[1]['freq']:.2f} Hz</li>" in settings_html
 
+
 def test_download_fft_html_settings_generation_no_annotations_no_time_limits():
     """Test settings HTML when annotations are empty and time limits are None."""
     signalx = "Time"
-    signaly = "WindSpeed" # Single signal
+    signaly = "WindSpeed"  # Single signal
     time_start = None
     time_end = None
     averaging = "None"
     windowing = "None"
     n_exp = 10
-    detrend = [] # Not selected
+    detrend = []  # Not selected
     x_limit = 10
     xscale = "linear"
     annotations = []
@@ -162,14 +166,18 @@ def test_download_fft_html_settings_generation_no_annotations_no_time_limits():
                 <td style="padding: 8px; border-bottom: 1px solid #ddd;">{x_limit} Hz</td>
             </tr>
         </table>
-    """ # Note: No annotations section here
+    """  # Note: No annotations section here
     settings_html += "</div>"
 
     td_style = 'style="padding: 8px; border-bottom: 1px solid #ddd;"'
 
     assert f"<td {td_style}>{signalx}</td>" in settings_html
-    assert f"<td {td_style}>{signaly}</td>" in settings_html # Check single signal handling
-    assert f"<td {td_style}>Start to End seconds</td>" in settings_html # Check None time limits
-    assert f"<td {td_style}>{'No'}</td>" in settings_html # Check detrend 'No'
-    assert "<h4>Frequency Annotations</h4>" not in settings_html # Check no annotation header
-    assert "<li>" not in settings_html # Check no annotation list items
+    # Check single signal handling
+    assert f"<td {td_style}>{signaly}</td>" in settings_html
+    # Check None time limits
+    assert f"<td {td_style}>Start to End seconds</td>" in settings_html
+    assert f"<td {td_style}>{'No'}</td>" in settings_html  # Check detrend 'No'
+    # Ensure the header is NOT present if there are no annotations
+    # Check no annotation header
+    assert '<h4 style="margin-top: 15px;">Frequency Annotations</h4>' not in settings_html
+    assert "<li>" not in settings_html  # Check no annotation list items
