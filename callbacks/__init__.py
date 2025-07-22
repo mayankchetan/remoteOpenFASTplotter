@@ -31,7 +31,7 @@ from .phase_callbacks import register_phase_callbacks
 def register_callbacks(app):
     """
     Register all callbacks with the Dash app
-    
+
     Parameters:
     -----------
     app : dash.Dash

@@ -9,4 +9,5 @@ to maintain backward compatibility with existing imports.
 # Simply import and re-export the register_callbacks function
 from callbacks import register_callbacks
 
-# No need to redefine the function here since it's already defined in callbacks/__init__.py
+# No need to redefine the function here since it's already defined in
+# callbacks/__init__.py

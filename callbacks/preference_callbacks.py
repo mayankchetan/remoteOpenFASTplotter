@@ -7,14 +7,14 @@ from dash import Input, Output, State, no_update
 from dash.exceptions import PreventUpdate
 
 # Import local modules
-from user_preferences import (load_preferences, save_plot_settings, 
-                             save_fft_settings)
+from user_preferences import (load_preferences, save_plot_settings,
+                              save_fft_settings)
 from utils import create_annotation_badges
 
 
 def register_preference_callbacks(app):
     """Register preference-related callbacks with the Dash app"""
-    
+
     # Initialize and load user preferences when app starts
     @app.callback(
         Output("fft-annotations", "data", allow_duplicate=True),
@@ -27,17 +27,18 @@ def register_preference_callbacks(app):
         Output("fft-xscale", "value", allow_duplicate=True),
         Output("fft-x-limit", "value", allow_duplicate=True),
         Output("plot-option", "value", allow_duplicate=True),
-        Input("plot-metadata", "data"),  # Use the metadata store as a trigger on app start
+        # Use the metadata store as a trigger on app start
+        Input("plot-metadata", "data"),
         prevent_initial_call=True
     )
     def initialize_from_preferences(metadata):
         """Initialize app settings from saved user preferences"""
         prefs = load_preferences()
-        
+
         # Initialize FFT annotations
         annotations = prefs.get("custom_annotations", [])
         badges = create_annotation_badges(annotations)
-        
+
         # Initialize FFT settings
         fft_settings = prefs.get("fft_settings", {})
         averaging = fft_settings.get("averaging", "Welch")
@@ -47,17 +48,21 @@ def register_preference_callbacks(app):
         detrend = ["detrend"] if fft_settings.get("detrend", True) else []
         xscale = fft_settings.get("xscale", "linear")
         x_limit = fft_settings.get("x_limit", 5)
-        
+
         # Initialize plot settings
         plot_settings = prefs.get("plot_settings", {})
         plot_option = plot_settings.get("plot_option", "overlay")
-        
-        return (annotations, badges, averaging, windowing, n_exp, plot_style, 
+
+        return (annotations, badges, averaging, windowing, n_exp, plot_style,
                 detrend, xscale, x_limit, plot_option)
-    
+
     # Add callbacks to save plot settings when they change
     @app.callback(
-        Output("plot-metadata", "data", allow_duplicate=True),  # Just a dummy output
+        Output(
+            "plot-metadata",
+            "data",
+            allow_duplicate=True),
+        # Just a dummy output
         Input("plot-option", "value"),
         State("plot-metadata", "data"),
         prevent_initial_call=True
@@ -67,10 +72,14 @@ def register_preference_callbacks(app):
         settings = {"plot_option": plot_option}
         save_plot_settings(settings)
         return no_update
-    
+
     # Add callback to save FFT settings when they change
     @app.callback(
-        Output("plot-metadata", "data", allow_duplicate=True),  # Just a dummy output
+        Output(
+            "plot-metadata",
+            "data",
+            allow_duplicate=True),
+        # Just a dummy output
         Input("fft-averaging", "value"),
         Input("fft-windowing", "value"),
         Input("fft-n-exp", "value"),
@@ -81,7 +90,15 @@ def register_preference_callbacks(app):
         State("plot-metadata", "data"),
         prevent_initial_call=True
     )
-    def save_fft_settings_callback(averaging, windowing, n_exp, plot_style, detrend, xscale, x_limit, metadata):
+    def save_fft_settings_callback(
+            averaging,
+            windowing,
+            n_exp,
+            plot_style,
+            detrend,
+            xscale,
+            x_limit,
+            metadata):
         """Save FFT settings to user preferences when they change"""
         settings = {
             "averaging": averaging,

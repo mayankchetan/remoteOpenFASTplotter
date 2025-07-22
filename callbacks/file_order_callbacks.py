@@ -15,7 +15,7 @@ from data_manager import DATAFRAMES
 
 def register_file_order_callbacks(app):
     """Register file ordering callbacks with the Dash app"""
-    
+
     @app.callback(
         Output("file-order-list", "children"),
         Output("file-order", "data"),
@@ -24,20 +24,26 @@ def register_file_order_callbacks(app):
          Input("reset-file-order-btn", "n_clicks")],
         [State("file-order-list", "children")]
     )
-    def update_file_order_list(loaded_files, current_order, reset_clicks, current_list):
+    def update_file_order_list(
+            loaded_files,
+            current_order,
+            reset_clicks,
+            current_list):
         """
         Update the file order list when files are loaded or when order is reset.
         Also initializes the file order store when new files are loaded.
         """
         if not loaded_files or "files" not in loaded_files or not loaded_files["files"]:
-            return html.Div("No files loaded", className="text-center p-3 text-muted"), []
-        
+            return html.Div(
+                "No files loaded", className="text-center p-3 text-muted"), []
+
         trigger_id = ctx.triggered_id
-        
+
         # List of file paths from loaded files
         file_paths = loaded_files["files"]
-        
-        # If we're resetting the order, or if file_order is empty, initialize with default order
+
+        # If we're resetting the order, or if file_order is empty, initialize
+        # with default order
         if trigger_id == "reset-file-order-btn" or not current_order:
             # Default order is the same as loaded files
             file_order = file_paths.copy()
@@ -45,31 +51,35 @@ def register_file_order_callbacks(app):
             # Keep existing order but add new files at the end
             # and remove files that are no longer loaded
             file_order = []
-            # First add existing files that are still loaded, preserving their order
+            # First add existing files that are still loaded, preserving their
+            # order
             for file_path in current_order:
                 if file_path in file_paths:
                     file_order.append(file_path)
-            
+
             # Then add any new files that weren't in the current order
             for file_path in file_paths:
                 if file_path not in file_order:
                     file_order.append(file_path)
-        
+
         # Create the list items for each file
         list_items = []
         for i, file_path in enumerate(file_order):
             file_name = os.path.basename(file_path)
-            
+
             # Create the list item with move up/down buttons
             list_items.append(
                 dbc.ListGroupItem(
                     [
                         html.Div([
                             # Order number badge
-                            dbc.Badge(f"{i+1}", color="primary", className="me-2"),
+                            dbc.Badge(
+                                f"{i+1}", color="primary", className="me-2"),
                             # File name with tooltip
-                            html.Span(file_name, className="me-auto", title=file_path),
-                            # Control buttons using text symbols instead of Bootstrap icons
+                            html.Span(
+                                file_name, className="me-auto", title=file_path),
+                            # Control buttons using text symbols instead of
+                            # Bootstrap icons
                             html.Div([
                                 # Move up button (disabled for first item)
                                 dbc.Button(
@@ -80,7 +90,8 @@ def register_file_order_callbacks(app):
                                     outline=True,
                                     className="me-1",
                                     disabled=(i == 0),
-                                    style={"fontSize": "14px", "padding": "2px 8px"}
+                                    style={
+                                        "fontSize": "14px", "padding": "2px 8px"}
                                 ),
                                 # Move down button (disabled for last item)
                                 dbc.Button(
@@ -90,7 +101,8 @@ def register_file_order_callbacks(app):
                                     color="secondary",
                                     outline=True,
                                     disabled=(i == len(file_order) - 1),
-                                    style={"fontSize": "14px", "padding": "2px 8px"}
+                                    style={
+                                        "fontSize": "14px", "padding": "2px 8px"}
                                 ),
                             ], className="d-flex")
                         ], className="d-flex align-items-center justify-content-between")
@@ -98,10 +110,10 @@ def register_file_order_callbacks(app):
                     className="py-2"
                 )
             )
-        
+
         # Return the list items wrapped in a ListGroup and the file order
         return dbc.ListGroup(list_items), file_order
-    
+
     # Callback for handling file reordering (move up)
     @app.callback(
         Output("file-order", "data", allow_duplicate=True),
@@ -113,23 +125,24 @@ def register_file_order_callbacks(app):
         """Move a file up in the order when its up button is clicked"""
         if not any(n_clicks) or not current_order:
             raise PreventUpdate
-        
+
         # Get the clicked button's ID
         button_id = ctx.triggered_id
         if button_id is None:
             raise PreventUpdate
-        
+
         # Get the index of the file to move up
         index = button_id["index"]
         if index <= 0 or index >= len(current_order):
             raise PreventUpdate
-        
+
         # Swap with the file above it
         new_order = current_order.copy()
-        new_order[index], new_order[index - 1] = new_order[index - 1], new_order[index]
-        
+        new_order[index], new_order[index -
+                                    1] = new_order[index - 1], new_order[index]
+
         return new_order
-    
+
     # Callback for handling file reordering (move down)
     @app.callback(
         Output("file-order", "data", allow_duplicate=True),
@@ -141,19 +154,20 @@ def register_file_order_callbacks(app):
         """Move a file down in the order when its down button is clicked"""
         if not any(n_clicks) or not current_order:
             raise PreventUpdate
-        
+
         # Get the clicked button's ID
         button_id = ctx.triggered_id
         if button_id is None:
             raise PreventUpdate
-        
+
         # Get the index of the file to move down
         index = button_id["index"]
         if index < 0 or index >= len(current_order) - 1:
             raise PreventUpdate
-        
+
         # Swap with the file below it
         new_order = current_order.copy()
-        new_order[index], new_order[index + 1] = new_order[index + 1], new_order[index]
-        
+        new_order[index], new_order[index +
+                                    1] = new_order[index + 1], new_order[index]
+
         return new_order

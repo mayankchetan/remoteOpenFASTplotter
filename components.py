@@ -13,17 +13,18 @@ from pathlib import Path
 import os
 from user_preferences import get_saved_file_paths
 
+
 def get_metadata():
     """Gather metadata for plot exports"""
     # Get current date and time
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     # Get system info (NREL_CLUSTER or hostname)
     system_name = os.environ.get("NREL_CLUSTER", socket.gethostname())
-    
+
     # Get username
     username = getpass.getuser()
-    
+
     # Try to get git version info
     try:
         git_version = subprocess.check_output(
@@ -33,13 +34,14 @@ def get_metadata():
         ).decode().strip()
     except (subprocess.SubprocessError, FileNotFoundError):
         git_version = "unknown"
-    
+
     return {
         "datetime": now,
         "system": system_name,
         "user": username,
         "version": git_version
     }
+
 
 # Loading spinner for visual feedback during file loading
 loading_spinner = dbc.Spinner(
@@ -50,17 +52,23 @@ loading_spinner = dbc.Spinner(
 )
 
 # File input card for loading and displaying OpenFAST files
+
+
 def create_file_input_card():
     """Create the file input card with saved paths functionality"""
     # Get saved path sets for the dropdown
     saved_paths = get_saved_file_paths()
-    saved_path_options = [{"label": name, "value": name} for name in saved_paths.keys()]
-    
+    saved_path_options = [{"label": name, "value": name}
+                          for name in saved_paths.keys()]
+
     return dbc.Card([
         dbc.CardHeader([
             html.Span("Load OpenFAST Files", className="me-auto"),
             html.Span([
-                dbc.Badge(id="loaded-files-count", color="primary", className="me-1"),
+                dbc.Badge(
+                    id="loaded-files-count",
+                    color="primary",
+                    className="me-1"),
                 html.Span(" files loaded", className="small")
             ])
         ], className="d-flex justify-content-between align-items-center"),
@@ -75,9 +83,22 @@ def create_file_input_card():
                     width=9
                 ),
                 dbc.Col([
-                    dbc.Button("Load Files", id="load-files-btn", color="primary", className="w-100 mb-2"),
-                    dbc.Button("Reload Files", id="reload-files-btn", color="info", className="w-100 mb-2"),
-                    dbc.Button("Clear All", id="clear-files-btn", color="secondary", outline=True, className="w-100")
+                    dbc.Button(
+                        "Load Files",
+                        id="load-files-btn",
+                        color="primary",
+                        className="w-100 mb-2"),
+                    dbc.Button(
+                        "Reload Files",
+                        id="reload-files-btn",
+                        color="info",
+                        className="w-100 mb-2"),
+                    dbc.Button(
+                        "Clear All",
+                        id="clear-files-btn",
+                        color="secondary",
+                        outline=True,
+                        className="w-100")
                 ], width=3)
             ], className="mb-2"),
             html.Div(id="file-loading-status", className="mt-2 small"),
@@ -98,19 +119,27 @@ def create_file_input_card():
                     className="mt-2"
                 )
             ], id="error-details-container", style={"display": "none"}),
-            # Hidden div for loaded-files-pills, will be replaced by the file order component
-            html.Div(id="loaded-files-pills", className="mt-3", style={"display": "none"}),
+            # Hidden div for loaded-files-pills, will be replaced by the file
+            # order component
+            html.Div(
+                id="loaded-files-pills",
+                className="mt-3",
+                style={
+                    "display": "none"}),
             # Add file info link to file input card
             html.Div([
                 html.A(id="file-info-link", children=[
-                    html.I(className="bi bi-info-circle me-1", style={"fontSize": "1.1rem"}),
+                    html.I(
+                        className="bi bi-info-circle me-1",
+                        style={
+                            "fontSize": "1.1rem"}),
                     "File Info"
                 ], href="#", className="text-decoration-none")
             ], className="d-flex justify-content-end mt-2"),
             # Add new elements for saved paths
             html.Div([
                 dbc.Button(
-                    "Saved File Path Sets ▾", 
+                    "Saved File Path Sets ▾",
                     id="toggle-saved-paths-btn",
                     color="link",
                     className="mt-3 ps-0 text-decoration-none"
@@ -128,7 +157,11 @@ def create_file_input_card():
                             ),
                         ], width=8),
                         dbc.Col([
-                            dbc.Button("Load", id="load-saved-paths-btn", color="secondary", size="sm"),
+                            dbc.Button(
+                                "Load",
+                                id="load-saved-paths-btn",
+                                color="secondary",
+                                size="sm"),
                         ], width=4),
                     ]),
                     dbc.Row([
@@ -141,15 +174,24 @@ def create_file_input_card():
                             ),
                         ], width=8),
                         dbc.Col([
-                            dbc.Button("Save", id="save-paths-btn", color="success", size="sm"),
+                            dbc.Button("Save", id="save-paths-btn",
+                                       color="success", size="sm"),
                         ], width=4),
                     ]),
                     dbc.Row([
                         dbc.Col([
-                            dbc.Button("Delete", id="delete-saved-paths-btn", color="danger", size="sm"),
+                            dbc.Button(
+                                "Delete",
+                                id="delete-saved-paths-btn",
+                                color="danger",
+                                size="sm"),
                         ], width=6),
                         dbc.Col([
-                            dbc.Button("Rename", id="rename-saved-paths-btn", color="warning", size="sm"),
+                            dbc.Button(
+                                "Rename",
+                                id="rename-saved-paths-btn",
+                                color="warning",
+                                size="sm"),
                         ], width=6),
                     ]),
                 ], className="mb-3 pt-2"),
@@ -160,26 +202,43 @@ def create_file_input_card():
             dbc.Modal([
                 dbc.ModalHeader("Rename Saved Path Set"),
                 dbc.ModalBody([
-                    dbc.Input(id="rename-path-set-input", placeholder="New name", type="text")
+                    dbc.Input(
+                        id="rename-path-set-input",
+                        placeholder="New name",
+                        type="text")
                 ]),
                 dbc.ModalFooter([
-                    dbc.Button("Cancel", id="rename-path-cancel", color="secondary"),
-                    dbc.Button("Rename", id="rename-path-confirm", color="primary"),
+                    dbc.Button(
+                        "Cancel",
+                        id="rename-path-cancel",
+                        color="secondary"),
+                    dbc.Button(
+                        "Rename",
+                        id="rename-path-confirm",
+                        color="primary"),
                 ]),
             ], id="rename-path-modal"),
             # Confirmation for delete
             dbc.Modal([
                 dbc.ModalHeader("Confirm Deletion"),
-                dbc.ModalBody("Are you sure you want to delete this saved path set?"),
+                dbc.ModalBody(
+                    "Are you sure you want to delete this saved path set?"),
                 dbc.ModalFooter([
-                    dbc.Button("Cancel", id="delete-path-cancel", color="secondary"),
-                    dbc.Button("Delete", id="delete-path-confirm", color="danger"),
+                    dbc.Button(
+                        "Cancel",
+                        id="delete-path-cancel",
+                        color="secondary"),
+                    dbc.Button(
+                        "Delete",
+                        id="delete-path-confirm",
+                        color="danger"),
                 ]),
             ], id="delete-path-modal"),
             # Add status message container
             html.Div(id="status-message", className="mt-2 small"),
         ])
     ])
+
 
 # New component for file ordering
 file_order_card = dbc.Card([
@@ -201,8 +260,8 @@ time_range_card = dbc.Card([
                 html.Label("Start Time"),
                 dbc.InputGroup([
                     dbc.Input(
-                        id="time-start", 
-                        type="number", 
+                        id="time-start",
+                        type="number",
                         placeholder="Start time",
                         step="any",
                         min=0
@@ -214,8 +273,8 @@ time_range_card = dbc.Card([
                 html.Label("End Time"),
                 dbc.InputGroup([
                     dbc.Input(
-                        id="time-end", 
-                        type="number", 
+                        id="time-end",
+                        type="number",
                         placeholder="End time",
                         step="any",
                         min=0
@@ -247,12 +306,28 @@ signal_selection_card = dbc.Card([
             dbc.Col(
                 [
                     html.Label("Y Signals"),
-                    dcc.Dropdown(id="signaly", options=[], value=None, multi=True),
+                    dcc.Dropdown(
+                        id="signaly",
+                        options=[],
+                        value=None,
+                        multi=True),
                     # Add favorite signals buttons
                     html.Div([
-                        dbc.Button("Load Favorites", id="favorite-signals-btn", color="link", size="sm", className="p-0 me-2"),
-                        dbc.Button("Save Selection", id="save-favorites-btn", color="link", size="sm", className="p-0"),
-                        html.Span(id="favorite-signals-status", className="ms-2 small")
+                        dbc.Button(
+                            "Load Favorites",
+                            id="favorite-signals-btn",
+                            color="link",
+                            size="sm",
+                            className="p-0 me-2"),
+                        dbc.Button(
+                            "Save Selection",
+                            id="save-favorites-btn",
+                            color="link",
+                            size="sm",
+                            className="p-0"),
+                        html.Span(
+                            id="favorite-signals-status",
+                            className="ms-2 small")
                     ], className="d-flex align-items-center mt-1")
                 ],
                 width=6
@@ -285,7 +360,11 @@ plot_controls_card = dbc.Card([
                         value="overlay",
                         className="mb-3"
                     ),
-                    dbc.Button("Update Plot", id="plot-btn", color="success", className="w-100"),
+                    dbc.Button(
+                        "Update Plot",
+                        id="plot-btn",
+                        color="success",
+                        className="w-100"),
                 ],
                 width=12
             ),
@@ -293,7 +372,8 @@ plot_controls_card = dbc.Card([
         dbc.Row([
             dbc.Col(
                 dbc.Button(
-                    [html.I(className="bi bi-download me-2"), "Export Plot as HTML"],
+                    [html.I(className="bi bi-download me-2"),
+                     "Export Plot as HTML"],
                     id="export-plot-btn",
                     color="info",
                     outline=True,
@@ -332,7 +412,7 @@ fft_controls_card = dbc.Card([
                     value="Welch"
                 ),
             ], width=4),
-            
+
             dbc.Col([
                 html.Label("Windowing"),
                 dcc.Dropdown(
@@ -345,7 +425,7 @@ fft_controls_card = dbc.Card([
                     value="hamming"
                 ),
             ], width=4),
-            
+
             dbc.Col([
                 html.Label("2^n Exponent"),
                 dbc.Input(
@@ -358,7 +438,7 @@ fft_controls_card = dbc.Card([
                 ),
             ], width=4),
         ], className="mb-3"),
-        
+
         dbc.Row([
             dbc.Col([
                 html.Label("X-axis Scale"),
@@ -372,7 +452,7 @@ fft_controls_card = dbc.Card([
                     inline=True
                 ),
             ], width=4),
-            
+
             dbc.Col([
                 html.Label("Plot Style"),
                 dbc.RadioItems(  # Changed from dropdown to radio buttons
@@ -385,7 +465,7 @@ fft_controls_card = dbc.Card([
                     inline=True
                 ),
             ], width=4),
-            
+
             dbc.Col([
                 html.Label("X-axis Limit (Hz)"),
                 dbc.Input(
@@ -398,7 +478,7 @@ fft_controls_card = dbc.Card([
                 ),
             ], width=4),
         ], className="mb-3"),
-        
+
         dbc.Row([
             dbc.Col([
                 dbc.Checklist(
@@ -410,19 +490,32 @@ fft_controls_card = dbc.Card([
                 ),
             ], width=12),
         ]),
-        
+
         # Annotations section
         dbc.Row([
             dbc.Col([
                 html.Label("Frequency Annotations", className="mt-3 mb-1"),
                 dbc.InputGroup([
-                    dbc.Input(id="fft-annotation-freq", type="text", placeholder="Hz (comma separated)", size="sm"),
-                    dbc.Input(id="fft-annotation-text", type="text", placeholder="Labels (comma separated)", size="sm"),
-                    dbc.Button("Add", id="fft-add-annotation-btn", outline=True, color="secondary", size="sm"),
+                    dbc.Input(
+                        id="fft-annotation-freq",
+                        type="text",
+                        placeholder="Hz (comma separated)",
+                        size="sm"),
+                    dbc.Input(
+                        id="fft-annotation-text",
+                        type="text",
+                        placeholder="Labels (comma separated)",
+                        size="sm"),
+                    dbc.Button(
+                        "Add",
+                        id="fft-add-annotation-btn",
+                        outline=True,
+                        color="secondary",
+                        size="sm"),
                 ], size="sm"),
             ], width=12),
         ], className="mb-1"),
-        
+
         # Rotor RPM input
         dbc.Row([
             dbc.Col([
@@ -436,28 +529,38 @@ fft_controls_card = dbc.Card([
                         min=0
                     ),
                     dbc.InputGroupText("RPM"),
-                    dbc.Button("Add Harmonics", id="add-harmonics-btn", outline=True, color="secondary", size="sm"),
+                    dbc.Button(
+                        "Add Harmonics",
+                        id="add-harmonics-btn",
+                        outline=True,
+                        color="secondary",
+                        size="sm"),
                 ], size="sm"),
             ], width=12),
         ], className="mb-3"),
-        
+
         # Badge display for current annotations
         dbc.Row([
             dbc.Col([
                 html.Div(id="fft-annotations-display", className="mb-2")
             ], width=12),
         ]),
-        
+
         dbc.Row([
             dbc.Col([
-                dbc.Button("Calculate FFT", id="fft-calculate-btn", color="success", className="w-100"),
+                dbc.Button(
+                    "Calculate FFT",
+                    id="fft-calculate-btn",
+                    color="success",
+                    className="w-100"),
             ], width=12),
         ]),
-        
+
         dbc.Row([
             dbc.Col(
                 dbc.Button(
-                    [html.I(className="bi bi-download me-2"), "Export FFT as HTML"],
+                    [html.I(className="bi bi-download me-2"),
+                     "Export FFT as HTML"],
                     id="export-fft-btn",
                     color="info",
                     outline=True,
@@ -495,7 +598,7 @@ phase_mag_controls_card = dbc.Card([
                     value=15
                 ),
             ], width=6),
-            
+
             dbc.Col([
                 html.Label("Plot Style"),
                 dbc.RadioItems(
@@ -509,7 +612,7 @@ phase_mag_controls_card = dbc.Card([
                 ),
             ], width=6),
         ], className="mb-3"),
-        
+
         dbc.Row([
             dbc.Col([
                 html.Label("X-axis Scale"),
@@ -523,7 +626,7 @@ phase_mag_controls_card = dbc.Card([
                     inline=True
                 ),
             ], width=6),
-            
+
             dbc.Col([
                 html.Label("X-axis Limit (Hz)"),
                 dbc.Input(
@@ -536,7 +639,7 @@ phase_mag_controls_card = dbc.Card([
                 ),
             ], width=6),
         ], className="mb-3"),
-        
+
         dbc.Row([
             dbc.Col([
                 dbc.Checklist(
@@ -548,7 +651,7 @@ phase_mag_controls_card = dbc.Card([
                 ),
             ], width=12),
         ]),
-        
+
         # Peak detection parameters
         dbc.Row([
             dbc.Col([
@@ -565,9 +668,10 @@ phase_mag_controls_card = dbc.Card([
                     ),
                 ], size="sm", className="mb-2"),
             ], width=6),
-            
+
             dbc.Col([
-                html.Label("\u00A0", className="mt-2"), # Non-breaking space for alignment
+                # Non-breaking space for alignment
+                html.Label("\u00A0", className="mt-2"),
                 dbc.Button(
                     "Find Peaks",
                     id="find-peaks-btn",
@@ -578,17 +682,22 @@ phase_mag_controls_card = dbc.Card([
                 ),
             ], width=6),
         ], className="mb-3"),
-        
+
         dbc.Row([
             dbc.Col([
-                dbc.Button("Calculate Phase/Magnitude", id="phase-calculate-btn", color="success", className="w-100"),
+                dbc.Button(
+                    "Calculate Phase/Magnitude",
+                    id="phase-calculate-btn",
+                    color="success",
+                    className="w-100"),
             ], width=12),
         ]),
-        
+
         dbc.Row([
             dbc.Col(
                 dbc.Button(
-                    [html.I(className="bi bi-download me-2"), "Export as HTML"],
+                    [html.I(className="bi bi-download me-2"),
+                     "Export as HTML"],
                     id="export-phase-btn",
                     color="info",
                     outline=True,
@@ -619,67 +728,49 @@ file_info_tooltip = dbc.Tooltip(
 )
 
 # Create tabs for different features
+
+
 def create_tabs():
     """Create tabbed interface for the application"""
-    return dbc.Tabs(
-        [
-            dbc.Tab(
-                [
-                    dbc.Row([
-                        dbc.Col([
-                            plot_controls_card,
-                            html.Div(loading_spinner, className="text-center my-3", id="loading-container", style={"display": "none"}),
-                        ], width=12)
-                    ], className="mb-2"),
-                    dbc.Row([
-                        dbc.Col(
-                            html.Div(id="plot-output"),
-                            width=12
-                        )
-                    ]),
-                ],
-                label="Time Domain",
-                tab_id="tab-time-domain",
-            ),
-            dbc.Tab(
-                [
-                    dbc.Row([
-                        dbc.Col(fft_controls_card, width=12)
-                    ], className="mb-2"),
-                    dbc.Row([
-                        dbc.Col(
-                            html.Div(id="fft-plot-output"),
-                            width=12
-                        )
-                    ]),
-                ],
-                label="FFT Analysis",
-                tab_id="tab-fft",
-            ),
-            dbc.Tab(
-                [
-                    dbc.Row([
-                        dbc.Col(phase_mag_controls_card, width=12)
-                    ], className="mb-2"),
-                    dbc.Row([
-                        dbc.Col(
-                            html.Div(id="phase-plot-output"),
-                            width=12
-                        )
-                    ]),
-                    dbc.Row([
-                        dbc.Col([
-                            html.Div(id="peak-table-container", className="mt-3")
-                        ], width=12)
-                    ])
-                ],
-                label="Phase/Magnitude Analysis",
-                tab_id="tab-phase-mag",
-            ),
-        ],
-        id="tabs",
-        active_tab="tab-time-domain",
-    )
+    return dbc.Tabs([dbc.Tab([dbc.Row([dbc.Col([plot_controls_card,
+                                                html.Div(loading_spinner,
+                                                         className="text-center my-3",
+                                                         id="loading-container",
+                                                         style={"display": "none"}),
+                                                ],
+                                               width=12)],
+                                      className="mb-2"),
+                              dbc.Row([dbc.Col(html.Div(id="plot-output"),
+                                               width=12)]),
+                              ],
+                             label="Time Domain",
+                             tab_id="tab-time-domain",
+                             ),
+                     dbc.Tab([dbc.Row([dbc.Col(fft_controls_card,
+                              width=12)],
+                                      className="mb-2"),
+                              dbc.Row([dbc.Col(html.Div(id="fft-plot-output"),
+                                               width=12)]),
+                              ],
+                             label="FFT Analysis",
+                             tab_id="tab-fft",
+                             ),
+                     dbc.Tab([dbc.Row([dbc.Col(phase_mag_controls_card,
+                                               width=12)],
+                                      className="mb-2"),
+                              dbc.Row([dbc.Col(html.Div(id="phase-plot-output"),
+                                               width=12)]),
+                              dbc.Row([dbc.Col([html.Div(id="peak-table-container",
+                                                         className="mt-3")],
+                                               width=12)])],
+                             label="Phase/Magnitude Analysis",
+                             tab_id="tab-phase-mag",
+                             ),
+                     ],
+                    id="tabs",
+                    active_tab="tab-time-domain",
+                    )
+
 
 def create_layout():
     """Create the main application layout"""
@@ -694,22 +785,35 @@ def create_layout():
         dcc.Store(id="selected-peaks", data=[]),
         dcc.Store(id="time-range-info", data={}),
         dcc.Store(id="fft-annotations", data=[]),
-        dcc.Store(id="plot-metadata", data=get_metadata()),  # Store metadata for exports
+        dcc.Store(
+            id="plot-metadata",
+            data=get_metadata()),
+        # Store metadata for exports
         dcc.Store(id="file-order", data=[]),  # New store for file ordering
-        dcc.Store(id="phase-raw-data", data={}),  # Store for phase/magnitude raw data
-        
+        # Store for phase/magnitude raw data
+        dcc.Store(id="phase-raw-data", data={}),
+
         # App title
         dbc.Row([
-            dbc.Col(html.H2("Remote OpenFAST Plotter", className="my-2"), width="auto"),
-            dbc.Col(html.Small(f"{get_metadata()['version']}", className="text-muted pt-3"), width="auto")
+            dbc.Col(
+                html.H2(
+                    "Remote OpenFAST Plotter",
+                    className="my-2"),
+                width="auto"),
+            dbc.Col(
+                html.Small(
+                    f"{get_metadata()['version']}",
+                    className="text-muted pt-3"),
+                width="auto")
         ], className="mb-2"),
-        
+
         # File input section
         dbc.Row([
             dbc.Col(create_file_input_card(), width=12)
         ], className="mb-2"),
-        
-        # Rearranged layout: Time Range and Signal Selection stacked, with File Order to the right
+
+        # Rearranged layout: Time Range and Signal Selection stacked, with File
+        # Order to the right
         dbc.Row([
             # Stack Time Range and Signal Selection vertically
             dbc.Col([
@@ -722,23 +826,23 @@ def create_layout():
                     dbc.Col(signal_selection_card, width=12)
                 ])
             ], width=6),
-            
+
             # File Order component next to the stack
             dbc.Col(file_order_card, width=6)
         ], className="mb-2"),
-        
+
         # Main content with tabs
         dbc.Row([
             dbc.Col(create_tabs(), width=12)
         ]),
-        
+
         file_info_tooltip,
-        
+
         # Download components
         dcc.Download(id="download-html"),
         dcc.Download(id="download-fft-html"),
         dcc.Download(id="download-phase-html"),
-        
+
         # Loading state store
         dcc.Store(id="is-loading", data=False),
     ], fluid=True)

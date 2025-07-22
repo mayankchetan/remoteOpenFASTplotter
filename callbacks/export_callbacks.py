@@ -3,7 +3,6 @@ Export callbacks for OpenFAST Plotter
 Contains callbacks for exporting plots as HTML
 """
 
-import os
 import datetime
 import pandas as pd
 import plotly.graph_objects as go
@@ -18,7 +17,7 @@ from utils import draw_graph
 
 def register_export_callbacks(app):
     """Register export callbacks with the Dash app"""
-    
+
     # Export plot to HTML
     @app.callback(
         Output("download-html", "data"),
@@ -30,7 +29,7 @@ def register_export_callbacks(app):
     def download_plot_html(export_clicks, current_fig, plot_data):
         """
         Generate and download an HTML file of the current plot.
-        
+
         This function:
         1. Uses the current figure if available
         2. Regenerates the figure from plot data if needed
@@ -48,7 +47,7 @@ def register_export_callbacks(app):
             # Fall back to regenerating the figure if needed
             if not plot_data:
                 raise PreventUpdate
-            
+
             # Extract plot configuration
             file_paths = plot_data.get("file_paths", [])
             signalx = plot_data.get("signalx")
@@ -56,17 +55,17 @@ def register_export_callbacks(app):
             plot_option = plot_data.get("plot_option", "overlay")
             start_time = plot_data.get("start_time")
             end_time = plot_data.get("end_time")
-            
+
             if not file_paths or not signalx or not signaly:
                 raise PreventUpdate
-            
+
             # Apply time range filtering to DataFrames
             filtered_dfs = []
             valid_paths = []
             for file_path in file_paths:
                 if file_path in DATAFRAMES:
                     df = DATAFRAMES[file_path].copy()
-                    
+
                     # Apply time filtering if specified
                     if start_time is not None or end_time is not None:
                         mask = pd.Series(True, index=df.index)
@@ -75,33 +74,39 @@ def register_export_callbacks(app):
                         if end_time is not None:
                             mask = mask & (df[signalx] <= end_time)
                         df = df[mask]
-                    
+
                     if not df.empty:
                         filtered_dfs.append(df)
                         valid_paths.append(file_path)
-            
+
             if not filtered_dfs:
                 raise PreventUpdate
-            
+
             if plot_option == "overlay" or len(valid_paths) == 1:
-                fig = draw_graph(valid_paths, filtered_dfs, signalx, signaly, "overlay")
+                fig = draw_graph(
+                    valid_paths,
+                    filtered_dfs,
+                    signalx,
+                    signaly,
+                    "overlay")
             else:
                 # For separate plots, use first file for the export
-                fig = draw_graph([valid_paths[0]], [filtered_dfs[0]], signalx, signaly, "separate")
-        
+                fig = draw_graph([valid_paths[0]], [
+                                 filtered_dfs[0]], signalx, signaly, "separate")
+
         # Generate the HTML content
         html_str = fig.to_html(include_plotlyjs='cdn')
-        
+
         # Create timestamp for filename
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"openfast_plot_{timestamp}.html"
-        
+
         # Return the content as a download
         return dict(
             content=html_str,
             filename=filename
         )
-    
+
     # Export FFT plot as HTML with enhanced details
     @app.callback(
         Output("download-fft-html", "data"),
@@ -120,22 +125,34 @@ def register_export_callbacks(app):
         State("fft-annotations", "data"),
         prevent_initial_call=True
     )
-    def download_fft_html(export_clicks, current_fig, signalx, signaly, time_start, time_end, 
-                         averaging, windowing, n_exp, detrend, x_limit, xscale, annotations):
+    def download_fft_html(
+            export_clicks,
+            current_fig,
+            signalx,
+            signaly,
+            time_start,
+            time_end,
+            averaging,
+            windowing,
+            n_exp,
+            detrend,
+            x_limit,
+            xscale,
+            annotations):
         """
         Generate and download an HTML file of the current FFT plot
         with detailed settings and annotations.
         """
         if not export_clicks or current_fig is None:
             raise PreventUpdate
-        
+
         # Use the stored figure
         fig = go.Figure(current_fig)
-            
+
         # Create timestamp for filename
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"openfast_fft_{timestamp}.html"
-        
+
         # Create detailed settings table
         settings_html = f"""
         <div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
@@ -183,33 +200,34 @@ def register_export_callbacks(app):
                 </tr>
             </table>
         """
-        
+
         # Add annotations if available
         if annotations and len(annotations) > 0:
             settings_html += """
             <h4 style="margin-top: 15px;">Frequency Annotations</h4>
             <ul>
             """
-            
+
             for anno in annotations:
                 settings_html += f"""
                 <li>{anno['label']}: {anno['freq']:.2f} Hz</li>
                 """
-            
+
             settings_html += "</ul>"
-        
+
         settings_html += "</div>"
-        
+
         # Generate the HTML with the figure and settings
         fig_html = fig.to_html(include_plotlyjs='cdn')
-        
+
         # Insert settings after the plot
         split_point = fig_html.find('</body>')
         if split_point > 0:
-            html_str = fig_html[:split_point] + settings_html + fig_html[split_point:]
+            html_str = fig_html[:split_point] + \
+                settings_html + fig_html[split_point:]
         else:
             html_str = fig_html + settings_html
-        
+
         return dict(
             content=html_str,
             filename=filename
