@@ -6,11 +6,19 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # Check if a conda environment was provided
 if [ $# -lt 1 ]; then
     echo "Error: Missing conda environment name"
-    echo "Usage: $(basename $0) <conda_environment_name>"
+    echo "Usage: $(basename $0) <conda_environment_name> [port]"
     exit 1
 fi
 
 CONDA_ENV="$1"
+
+# Check if port was provided as second argument
+PORT_ARG=""
+if [ $# -ge 2 ]; then
+    PORT_ARG="--port $2"
+else
+    PORT_ARG="--port 8050"  # Default port
+fi
 
 # Change to the repository directory
 cd "$SCRIPT_DIR"
@@ -64,7 +72,7 @@ fi
 # Activate conda environment, run the app, then deactivate
 echo "Activating conda environment: $CONDA_ENV"
 echo "Starting Remote OpenFAST Plotter..."
-source activate $CONDA_ENV && python "$SCRIPT_DIR/app.py" && source deactivate
+source activate $CONDA_ENV && python "$SCRIPT_DIR/app.py" $PORT_ARG && source deactivate
 
 # Return to original directory
 cd - > /dev/null
